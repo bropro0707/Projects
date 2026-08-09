@@ -1,0 +1,21 @@
+# Virtual environment
+venv/
+.env
+
+# Python
+__pycache__/
+*.py[codz]
+*$py.class
+.pytest_cache/
+.coverage
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
