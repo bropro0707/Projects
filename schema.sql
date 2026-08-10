@@ -1,11 +1,11 @@
 -- MySQL schema for TMDB‑based content recommendation app
 -- Engine: InnoDB, charset utf8mb4
 
-CREATE DATABASE IF NOT EXISTS tmdb_recommender
+CREATE DATABASE IF NOT EXISTS movie_recommender
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
-USE tmdb_recommender;
+USE movie_recommender;
 
 -- 1. Titles (movies & TV shows)
 CREATE TABLE `titles` (

@@ -16,9 +16,10 @@ def create_app():
         'port': int(os.getenv('MYSQL_PORT', 3306)),
         'user': os.getenv('MYSQL_USER', 'root'),
         'password': os.getenv('MYSQL_PASSWORD', ''),
-        'database': os.getenv('MYSQL_DATABASE', 'tmdb_recommender'),
+        'database': os.getenv('MYSQL_DATABASE', 'movie_recommender'),
         'charset': 'utf8mb4',
         'collation': 'utf8mb4_unicode_ci',
+        'auth_plugin': 'mysql_native_password',
     }
     cnx_pool = pooling.MySQLConnectionPool(pool_name="mypool", pool_size=5, **db_config)
 
