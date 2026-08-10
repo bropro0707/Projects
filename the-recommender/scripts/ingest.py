@@ -29,7 +29,8 @@ if not TMDB_API_KEY:
     sys.exit("TMDB_API_KEY not set in .env")
 
 TMDB_BASE = "https://api.themoviedb.org/3"
-HEADERS = {"Authorization": f"Bearer {TMDB_API_KEY}", "accept": "application/json"}
+HEADERS = {"accept": "application/json"}
+API_KEY_PARAM = {"api_key": TMDB_API_KEY}
 
 MYSQL_CFG = {
     "host": os.getenv("MYSQL_HOST", "localhost"),
@@ -47,6 +48,8 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("ingest")
+
+print(f"Connecting to database: {MYSQL_CFG['database']}")
 
 # ----------------------------------------------------------------------
 # DB helpers
@@ -161,6 +164,9 @@ def link_title_person(cursor, title_id, person_id, role, character=None, order_i
 # ----------------------------------------------------------------------
 def tmdb_get(path, params=None):
     url = f"{TMDB_BASE}{path}"
+    if params is None:
+        params = {}
+    params.update(API_KEY_PARAM)
     try:
         resp = requests.get(url, headers=HEADERS, params=params, timeout=15)
         resp.raise_for_status()
