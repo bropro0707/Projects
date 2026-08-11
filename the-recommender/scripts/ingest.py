@@ -32,6 +32,9 @@ TMDB_BASE = "https://api.themoviedb.org/3"
 HEADERS = {"accept": "application/json"}
 API_KEY_PARAM = {"api_key": TMDB_API_KEY}
 
+SESSION = requests.Session()
+SESSION.headers.update(HEADERS)
+
 MYSQL_CFG = {
     "host": os.getenv("MYSQL_HOST", "localhost"),
     "port": int(os.getenv("MYSQL_PORT", 3306)),
@@ -167,13 +170,19 @@ def tmdb_get(path, params=None):
     if params is None:
         params = {}
     params.update(API_KEY_PARAM)
-    try:
-        resp = requests.get(url, headers=HEADERS, params=params, timeout=15)
-        resp.raise_for_status()
-        return resp.json()
-    except Exception as exc:
-        log.warning("TMDB request failed %s: %s", path, exc)
-        return None
+    for attempt in range(3):
+        try:
+            resp = SESSION.get(url, params=params, timeout=15)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as exc:
+            if attempt == 2:
+                log.warning("TMDB request failed %s after 3 attempts: %s", path, exc)
+                return None
+            delay = 2 ** attempt
+            log.debug("TMDB request failed %s (attempt %d/3), retrying in %ds: %s", path, attempt + 1, delay, exc)
+            time.sleep(delay)
+    return None
 
 
 def fetch_genres(media_type):
@@ -234,6 +243,8 @@ def ingest_titles(media_type, items, conn, cursor):
             title = details.get("title") or details.get("name")
             overview = details.get("overview")
             release_date = details.get("release_date") or details.get("first_air_date")
+            if release_date == "":
+                release_date = None
             poster_path = details.get("poster_path")
             vote_average = details.get("vote_average")
             genre_ids = [g["id"] for g in details.get("genres", [])]
