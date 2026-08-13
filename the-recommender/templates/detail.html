@@ -77,8 +77,12 @@
 
 <!-- More Like This -->
 {% if similar %}
-<section class="pb-5">
-  <div class="container px-3 px-md-5">
+<section class="pb-5 position-relative overflow-hidden">
+  <div class="grid-overlay" aria-hidden="true"></div>
+  <div class="hero-orb orb-1" aria-hidden="true"></div>
+  <div class="hero-orb orb-2" aria-hidden="true"></div>
+  <div class="hero-orb orb-3" aria-hidden="true"></div>
+  <div class="container px-3 px-md-5 position-relative">
     <div class="section-head reveal">
       <span class="section-kicker"><i class="bi bi-magic me-1"></i> Because you liked this</span>
       <h2 class="section-title">More Like This</h2>
@@ -118,7 +122,7 @@
 {% block scripts %}
 <script>
   // Parallax backdrop
-  const hero=document.getElementById('detailHero');
+  const hero=document.querySelector('.detail-hero');
   const bg=hero.querySelector('.parallax-bg');
   window.addEventListener('scroll',()=>{
     if(bg){

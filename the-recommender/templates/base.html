@@ -21,6 +21,7 @@
 
   <style>
     :root{
+      --brand-left:1rem;
       --bg:#0b0d14;
       --surface:#161a28;
       --surface-2:#1d2334;
@@ -97,7 +98,10 @@
     }
     .navbar-brand:hover .brand-logo{transform:rotate(-8deg) scale(1.06)}
     .brand-text{white-space:nowrap}
-    .search-form{max-width:380px}
+    .search-form{max-width:380px;transition:opacity .35s ease,visibility .35s ease}
+    @media (min-width:992px){
+      .search-form.search-hidden{opacity:0;visibility:hidden;pointer-events:none}
+    }
     .search-form .form-control{
       background:rgba(255,255,255,.05);
       border:1px solid var(--border);
@@ -119,6 +123,18 @@
     .search-form .btn:hover{box-shadow:0 0 20px rgba(124,92,255,.5);transform:scale(1.03)}
     .navbar-toggler:focus{box-shadow:none}
 
+    /* Centered brand + hidden logo while the hero search is on screen (lg+) */
+    @media (min-width:992px){
+      .navbar .navbar-brand{
+        position:absolute;left:var(--brand-left);top:50%;
+        transform:translateY(-50%);z-index:2;
+        transition:left .45s cubic-bezier(.4,0,.2,1),transform .45s cubic-bezier(.4,0,.2,1),color .35s;
+      }
+      .navbar.search-centered .navbar-brand{left:50%;transform:translate(-50%,-50%)}
+      .brand-logo{transition:opacity .3s ease,transform .3s ease}
+      .navbar.search-centered .brand-logo{opacity:0;transform:scale(.4)}
+    }
+
     /* ============ Buttons ============ */
     .btn-gradient{
       background:var(--gradient);border:none;color:#0b0d14;font-weight:600;
@@ -133,6 +149,26 @@
     }
     .btn-ghost:hover{
       border-color:var(--violet);color:#fff;box-shadow:0 0 24px rgba(124,92,255,.3);transform:translateY(-3px);
+    }
+
+    /* ============ Page / grid backgrounds ============ */
+    .page-grid-bg{
+      position:fixed;top:0;left:0;right:0;height:100vh;z-index:-1;pointer-events:none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+      background-size:44px 44px;
+      -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.55) 20%,transparent 50%);
+      mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.55) 20%,transparent 50%);
+    }
+    .grid-overlay{
+      position:absolute;inset:0;pointer-events:none;
+      background-image:
+        linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
+      background-size:44px 44px;
+      -webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 35%,transparent 100%);
+      mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 35%,transparent 100%);
     }
 
     /* ============ Hero ============ */
@@ -383,6 +419,8 @@
       .hero-sub{font-size:1rem}
       .stat-card small{font-size:.72rem}
     }
+    @media (min-width:768px){:root{--brand-left:3rem}}
+    @media (min-width:992px){:root{--brand-left:4rem}}
     @media (max-width:575.98px){
       .hero-title{font-size:2.35rem}
       .hero-search .btn{padding:0 1.3rem}
@@ -395,6 +433,7 @@
   </style>
 </head>
 <body>
+  <div class="page-grid-bg" aria-hidden="true"></div>
   <!-- Navbar -->
   <nav class="navbar navbar-expand-lg px-3 px-md-5 py-3" id="mainNavbar">
     <div class="container-fluid px-0 px-lg-3">
@@ -407,7 +446,7 @@
         <i class="bi bi-list text-light fs-3"></i>
       </button>
       <div class="collapse navbar-collapse" id="navContent">
-        <form class="search-form ms-auto w-100 w-lg-auto my-3 my-lg-0" action="{{ url_for('index') }}" method="GET" role="search">
+        <form class="search-form ms-auto w-100 w-lg-auto my-3 my-lg-0" id="navbarSearch" action="{{ url_for('index') }}" method="GET" role="search">
           <div class="input-group">
             <input class="form-control" type="search" name="q" placeholder="Search movies & shows…"
                    value="{{ request.args.get('q','') }}" aria-label="Search">
@@ -467,6 +506,32 @@
       if(window.scrollY>20) navbar.classList.add('scrolled');
       else navbar.classList.remove('scrolled');
     },{passive:true});
+
+    // Navbar search: hide on load while the big hero search is on screen,
+    // reveal it once the user scrolls past the hero search bar.
+    const navbarSearch=document.getElementById('navbarSearch');
+    const heroSearch=document.querySelector('.hero-search');
+    if(navbarSearch && heroSearch){
+      const hideNavSearch=()=>{
+        navbarSearch.classList.add('search-hidden');
+        navbar.classList.add('search-centered');
+      };
+      const showNavSearch=()=>{
+        navbarSearch.classList.remove('search-hidden');
+        navbar.classList.remove('search-centered');
+      };
+      if('IntersectionObserver' in window){
+        const so=new IntersectionObserver(entries=>{
+          entries.forEach(e=>{ e.isIntersecting ? hideNavSearch() : showNavSearch(); });
+        },{threshold:0});
+        so.observe(heroSearch);
+      } else {
+        hideNavSearch();
+        window.addEventListener('scroll',()=>{
+          heroSearch.getBoundingClientRect().bottom<=0 ? showNavSearch() : hideNavSearch();
+        },{passive:true});
+      }
+    }
 
     // Scroll reveal
     const revealEls=document.querySelectorAll('.reveal');
