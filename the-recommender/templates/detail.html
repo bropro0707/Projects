@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title.title }} – The Recommender{% endblock %}
+
+{% block content %}
+<!-- Backdrop hero -->
+<header class="detail-hero position-relative overflow-hidden" style="min-height:80vh;">
+  {% if title.backdrop_path %}
+  <div class="parallax-bg" style="background-image:url('{{ title.backdrop_path | tmdb_image('w1280') }}');"></div>
+  {% else %}
+  <div class="parallax-bg" style="background:linear-gradient(135deg,#1d2334 0%,#0b0d14 100%);"></div>
+  {% endif %}
+  <div class="hero-scrim"></div>
+
+  <div class="container px-3 px-md-5 position-relative h-100 d-flex flex-column justify-content-end pb-5">
+    <a href="{{ url_for('index', q=request.args.get('q'), page=request.args.get('page',1)) }}"
+       class="btn btn-ghost align-self-start mb-4" style="max-width:fit-content;">
+      <i class="bi bi-arrow-left me-2"></i>Back to Browse
+    </a>
+
+    <div class="row align-items-end g-4">
+      <!-- Poster -->
+      <div class="col-12 col-md-3 col-lg-2">
+        {% if title.poster_path %}
+        <img src="{{ title.poster_path | tmdb_image('w342') }}" alt="{{ title.title }}"
+             class="detail-poster img-fluid rounded-4" loading="eager">
+        {% else %}
+        <div class="detail-poster rounded-4 d-flex align-items-center justify-content-center" style="aspect-ratio:2/3;background:var(--surface-2);">
+          <i class="bi bi-film" style="font-size:4rem;color:var(--muted);"></i>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Info -->
+      <div class="col-12 col-md-9 col-lg-10">
+        <h1 class="detail-title">{{ title.title }}</h1>
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          <span class="rating-pill" style="background:var(--gradient);border:none;color:#0b0d14;"><i class="bi bi-star-fill me-1" style="color:#0b0d14;"></i>{{ "%.1f"|format(title.vote_average or 0) }}</span>
+          {% if title.release_date %}<span class="meta-chip"><i class="bi bi-calendar3 me-1"></i>{{ title.release_date.year }}</span>{% endif %}
+          <span class="meta-chip"><i class="bi bi-film me-1"></i>{{ title.media_type|capitalize }}</span>
+          <span class="meta-chip"><i class="bi bi-activity me-1"></i>{{ "%.1f"|format(title.popularity or 0) }} popularity</span>
+        </div>
+        <p class="detail-overview">{{ title.overview or 'No overview available yet.' }}</p>
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <button class="btn btn-gradient action-btn" data-toast="Added to your Watchlist" data-icon="bi-plus-circle"><i class="bi bi-plus-lg me-2"></i>Watchlist</button>
+          <button class="btn btn-ghost action-btn" data-toast="Saved to Favorites" data-icon="bi-heart-fill"><i class="bi bi-heart me-2"></i>Favorite</button>
+          <button class="btn btn-ghost action-btn" data-toast="Link copied to clipboard" data-icon="bi-link-45deg"><i class="bi bi-share me-2"></i>Share</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- Info grid -->
+<section class="py-5">
+  <div class="container px-3 px-md-5">
+    <div class="row g-3">
+      {% set info = [
+        ('Released', title.release_date.strftime('%Y-%m-%d') if title.release_date else '—'),
+        ('Rating', "%.1f"|format(title.vote_average or 0)),
+        ('Votes', (title.vote_count|int) if title.vote_count else '—'),
+        ('Type', title.media_type|capitalize),
+        ('Popularity', "%.1f"|format(title.popularity or 0)),
+        ('Language', (title.original_language|upper) if title.original_language else '—')
+      ] %}
+      {% for label, value in info %}
+      <div class="col-6 col-md-4 col-lg-2">
+        <div class="info-tile reveal">
+          <small>{{ label }}</small>
+          <div class="info-value">{{ value }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- More Like This -->
+{% if similar %}
+<section class="pb-5">
+  <div class="container px-3 px-md-5">
+    <div class="section-head reveal">
+      <span class="section-kicker"><i class="bi bi-magic me-1"></i> Because you liked this</span>
+      <h2 class="section-title">More Like This</h2>
+    </div>
+
+    <div class="row g-4">
+      {% for s in similar %}
+      <div class="col-6 col-sm-4 col-md-3 col-lg-2 reveal" style="transition-delay:calc({{ loop.index0 }} * 45ms);">
+        <a href="{{ url_for('title_detail', title_id=s.id) }}" class="poster-card d-block text-decoration-none" aria-label="View {{ s.title }}">
+          {% if s.poster_path %}
+          <img src="{{ s.poster_path | tmdb_image('w342') }}" alt="{{ s.title }}" class="w-100" loading="lazy" style="aspect-ratio:2/3;object-fit:cover;">
+          {% else %}
+          <div class="w-100 d-flex align-items-center justify-content-center" style="aspect-ratio:2/3;background:var(--surface-2);">
+            <i class="bi bi-film" style="font-size:3rem;color:var(--muted);"></i>
+          </div>
+          {% endif %}
+
+          <span class="rating-pill position-absolute top-0 start-0 m-2"><i class="bi bi-star-fill"></i> {{ "%.1f"|format(s.vote_average or 0) }}</span>
+          <span class="type-badge" style="border-color:rgba(45,212,191,.55);color:#2dd4bf;">{{ "%.0f"|format((s.similarity_score|float)*100) }}% Match</span>
+
+          <span class="card-overlay">
+            <span class="text-white fw-semibold" style="font-size:.95rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ s.title }}</span>
+            <span class="d-flex align-items-center gap-2 mt-1 small" style="color:var(--muted);">
+              {% if s.release_date %}<span><i class="bi bi-calendar3 me-1"></i>{{ s.release_date.year }}</span>{% endif %}
+              <span class="badge-view ms-auto"><i class="bi bi-arrow-up-right"></i></span>
+            </span>
+          </span>
+        </a>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Parallax backdrop
+  const hero=document.getElementById('detailHero');
+  const bg=hero.querySelector('.parallax-bg');
+  window.addEventListener('scroll',()=>{
+    if(bg){
+      const y=window.scrollY*0.35;
+      bg.style.transform=`translateY(${y}px)`;
+    }
+  },{passive:true});
+
+  // Action buttons with toast feedback
+  document.querySelectorAll('.action-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const msg=btn.dataset.toast||'Done';
+      const icon=btn.dataset.icon||'bi-check2-circle';
+      btn.style.transform='scale(.95)';
+      window.showToast(msg,icon);
+      setTimeout(()=>{btn.style.transform='';},350);
+    });
+  });
+</script>
+{% endblock %}

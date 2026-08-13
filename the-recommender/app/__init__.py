@@ -7,8 +7,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder="../templates", static_folder="../static")
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.jinja_env.auto_reload = True
 
     # Database connection pool
     db_config = {
@@ -39,7 +41,7 @@ def create_app():
         try:
             if query:
                 sql = """
-                    SELECT id, title, poster_path, vote_average, release_date
+                    SELECT id, media_type, title, poster_path, vote_average, release_date
                     FROM titles
                     WHERE title LIKE %s
                     ORDER BY title
@@ -53,7 +55,7 @@ def create_app():
                 total = cursor.fetchone()['cnt']
             else:
                 sql = """
-                    SELECT id, title, poster_path, vote_average, release_date
+                    SELECT id, media_type, title, poster_path, vote_average, release_date
                     FROM titles
                     ORDER BY release_date DESC
                     LIMIT %s OFFSET %s
@@ -71,6 +73,7 @@ def create_app():
                                titles=titles,
                                page=page,
                                total_pages=total_pages,
+                               total=total,
                                query=query,
                                PER_PAGE=PER_PAGE)
 
@@ -81,7 +84,7 @@ def create_app():
         try:
             cursor.execute("""
                 SELECT id, tmdb_id, media_type, title, overview, release_date,
-                       poster_path, vote_average
+                       poster_path, backdrop_path, vote_average, vote_count, popularity, original_language
                 FROM titles WHERE id = %s
             """, (title_id,))
             title = cursor.fetchone()
@@ -103,5 +106,13 @@ def create_app():
             conn.close()
 
         return render_template('detail.html', title=title, similar=similar)
+
+    @app.template_filter('tmdb_image')
+    def tmdb_image(path, size='w342'):
+        if not path:
+            return ''
+        if not path.startswith('/'):
+            path = '/' + path
+        return f'https://image.tmdb.org/t/p/{size}{path}'
 
     return app
