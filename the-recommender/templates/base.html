@@ -133,6 +133,9 @@
       .navbar.search-centered .navbar-brand{left:50%;transform:translate(-50%,-50%)}
       .brand-logo{transition:opacity .3s ease,transform .3s ease}
       .navbar.search-centered .brand-logo{opacity:0;transform:scale(.4)}
+      /* reserve space for the absolutely-positioned brand so the collapse
+         (Personalize button + search) never overlaps it */
+      .navbar-collapse{padding-left:19rem}
     }
 
     /* ============ Buttons ============ */
@@ -151,42 +154,28 @@
       border-color:var(--violet);color:#fff;box-shadow:0 0 24px rgba(124,92,255,.3);transform:translateY(-3px);
     }
 
-    /* ============ Page / grid backgrounds ============ */
-    .page-grid-bg{
-      position:fixed;top:0;left:0;right:0;height:100vh;z-index:-1;pointer-events:none;
-      background-image:
-        linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
-      background-size:44px 44px;
-      -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.55) 20%,transparent 50%);
-      mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.55) 20%,transparent 50%);
+    /* ============ Full-page background (continuous grid + orbs) ============ */
+    .bg-scene{
+      position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+      background:var(--bg);
     }
-    .grid-overlay{
-      position:absolute;inset:0;pointer-events:none;
+    .bg-grid{
+      position:absolute;inset:0;
       background-image:
         linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
         linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
       background-size:44px 44px;
-      -webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 35%,transparent 100%);
-      mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 35%,transparent 100%);
+      -webkit-mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.5) 18%,transparent 55%);
+      mask-image:linear-gradient(180deg,#000 0%,rgba(0,0,0,.5) 18%,transparent 55%);
     }
+    .bg-orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;will-change:transform}
+    .bg-orb.orb-1{width:430px;height:430px;background:var(--violet);top:-150px;right:-90px;opacity:.5;animation:float 15s ease-in-out infinite}
+    .bg-orb.orb-2{width:360px;height:360px;background:var(--teal);bottom:-170px;left:-110px;opacity:.3;animation:float 19s ease-in-out infinite reverse}
+    .bg-orb.orb-3{width:260px;height:260px;background:var(--pink);top:34%;left:58%;opacity:.16;animation:float 23s ease-in-out infinite}
+    @keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(34px,-34px)}}
 
     /* ============ Hero ============ */
     .hero{position:relative;overflow:hidden}
-    .hero-grid-bg{
-      position:absolute;inset:0;pointer-events:none;
-      background-image:
-        linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);
-      background-size:44px 44px;
-      -webkit-mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 35%,transparent 100%);
-      mask-image:radial-gradient(ellipse 75% 65% at 50% 0%,#000 35%,transparent 100%);
-    }
-    .hero-orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;will-change:transform}
-    .hero-orb.orb-1{width:430px;height:430px;background:var(--violet);top:-150px;right:-90px;opacity:.5;animation:float 15s ease-in-out infinite}
-    .hero-orb.orb-2{width:360px;height:360px;background:var(--teal);bottom:-170px;left:-110px;opacity:.3;animation:float 19s ease-in-out infinite reverse}
-    .hero-orb.orb-3{width:260px;height:260px;background:var(--pink);top:34%;left:58%;opacity:.16;animation:float 23s ease-in-out infinite}
-    @keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(34px,-34px)}}
 
     .hero-pill{
       display:inline-flex;align-items:center;gap:.55rem;
@@ -433,7 +422,12 @@
   </style>
 </head>
 <body>
-  <div class="page-grid-bg" aria-hidden="true"></div>
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+  </div>
   <!-- Navbar -->
   <nav class="navbar navbar-expand-lg px-3 px-md-5 py-3" id="mainNavbar">
     <div class="container-fluid px-0 px-lg-3">
@@ -446,6 +440,9 @@
         <i class="bi bi-list text-light fs-3"></i>
       </button>
       <div class="collapse navbar-collapse" id="navContent">
+        <a class="btn btn-ghost me-2 my-2 my-lg-0" href="{{ url_for('personalize') }}" style="padding:.45rem 1.2rem;font-size:.9rem;">
+          <i class="bi bi-sliders2-vertical me-1"></i>Personalize
+        </a>
         <form class="search-form ms-auto w-100 w-lg-auto my-3 my-lg-0" id="navbarSearch" action="{{ url_for('index') }}" method="GET" role="search">
           <div class="input-group">
             <input class="form-control" type="search" name="q" placeholder="Search movies & shows…"

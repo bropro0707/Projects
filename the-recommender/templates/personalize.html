@@ -1,11 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}The Recommender – Discover Your Next Favorite{% endblock %}
+{% block title %}Personalize – The Recommender{% endblock %}
 
 {% block content %}
-
-{% if quiz and results is none %}
-<!-- ============ Personalization Quiz ============ -->
 <style>
   .quiz-hero{position:relative;padding:4rem 0 1rem}
   .quiz-kicker{color:var(--teal);font-size:.78rem;font-weight:600;letter-spacing:.2em;text-transform:uppercase;display:inline-flex;align-items:center;gap:.5rem}
@@ -36,14 +33,16 @@
   }
   .opt-chip:hover{border-color:rgba(124,92,255,.6);background:rgba(124,92,255,.08)}
   .opt-chip i{color:var(--muted);transition:var(--transition)}
+  .opt-chip .check{opacity:0;color:var(--teal);margin-left:.15rem;transition:var(--transition)}
   .form-check-input:checked + .opt-chip{
     background:var(--gradient-soft);border-color:var(--violet);color:#fff;
     box-shadow:0 0 0 4px rgba(124,92,255,.15);
   }
   .form-check-input:checked + .opt-chip i{color:var(--teal)}
   .form-check-input:checked + .opt-chip .check{opacity:1}
-  .opt-chip .check{opacity:0;color:var(--teal);margin-left:.15rem;transition:var(--transition)}
+  .opt-chip .check{margin-left:auto}
 
+  /* big two-option cards for Q1 */
   .media-card{
     display:block;cursor:pointer;text-align:center;
     background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--radius-sm);
@@ -62,6 +61,7 @@
     position:absolute;top:.6rem;right:.7rem;color:var(--teal);font-size:1rem;
   }
 
+  /* favorite picker */
   .fav-item{position:relative;cursor:pointer;border-radius:var(--radius-sm);overflow:hidden;border:2px solid transparent;transition:var(--transition)}
   .fav-item img{aspect-ratio:2/3;object-fit:cover;width:100%;transition:transform .4s cubic-bezier(.2,.7,.3,1)}
   .fav-item:hover img{transform:scale(1.05)}
@@ -85,6 +85,7 @@
   .q-skip{color:var(--muted);font-size:.82rem;cursor:pointer;background:none;border:none;transition:var(--transition);text-decoration:underline;text-decoration-style:dotted}
   .q-skip:hover{color:#fff}
   .quiz-card.skipped{opacity:.45;border-style:dashed}
+  .quiz-card.skipped .form-check-input:disabled + *{pointer-events:none}
 
   .btn-submit{background:var(--gradient);border:none;color:#0b0d14;font-weight:700;border-radius:50rem;padding:.85rem 2.4rem;font-size:1.05rem;transition:var(--transition)}
   .btn-submit:hover{box-shadow:0 12px 34px rgba(124,92,255,.55);transform:translateY(-3px);color:#0b0d14}
@@ -94,6 +95,7 @@
   .result-count{color:var(--muted);font-size:.95rem}
 </style>
 
+{% if results is none %}
 <!-- Quiz hero -->
 <section class="quiz-hero">
   <div class="container px-3 px-md-5 position-relative">
@@ -107,7 +109,7 @@
         </p>
       </div>
       <div class="col-12 col-md-4 text-md-end">
-        <a href="{{ url_for('index', skip=1) }}" class="quiz-skip d-inline-flex align-items-center gap-2">
+        <a href="{{ url_for('index') }}" class="quiz-skip d-inline-flex align-items-center gap-2">
           <i class="bi bi-arrow-up-right-circle"></i> Skip the quiz &amp; just browse
         </a>
       </div>
@@ -118,7 +120,7 @@
 <!-- Quiz form -->
 <section class="py-4">
   <div class="container px-3 px-md-5">
-    <form method="POST" id="quizForm">
+    <form method="POST" id="quizForm" action="{{ url_for('personalize') }}">
       <div class="row g-4">
 
         <!-- Q1: Movie or Series -->
@@ -253,51 +255,14 @@
 
       <div class="d-flex flex-column flex-sm-row align-items-center justify-content-center gap-3 my-5">
         <button type="submit" class="btn-submit"><i class="bi bi-magic me-2"></i>Show me my picks</button>
-        <a href="{{ url_for('index', skip=1) }}" class="btn btn-ghost">Just browse everything</a>
+        <a href="{{ url_for('index') }}" class="btn btn-ghost">Cancel</a>
       </div>
     </form>
   </div>
 </section>
+{% else %}
 
-<script>
-  // Skip buttons
-  document.querySelectorAll('[data-skip]').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const card=document.querySelector(`[data-question="${btn.dataset.skip}"]`);
-      card.classList.toggle('skipped');
-      card.querySelectorAll('input').forEach(inp=>{ inp.disabled=card.classList.contains('skipped'); });
-      btn.textContent=card.classList.contains('skipped') ? 'Restore question' : 'Skip this question';
-    });
-  });
-
-  // Favorite picker: tap poster to select
-  const favId=document.getElementById('favoriteId');
-  const favText=document.getElementById('favoriteText');
-  document.querySelectorAll('.fav-item').forEach(item=>{
-    item.addEventListener('click',()=>{
-      const wasSelected=item.classList.contains('selected');
-      document.querySelectorAll('.fav-item').forEach(i=>i.classList.remove('selected'));
-      if(!wasSelected){
-        item.classList.add('selected');
-        favId.value=item.dataset.id;
-        favText.value='';
-        favText.placeholder=item.dataset.title+' (selected — click a poster to change)';
-      } else {
-        favId.value='';
-        favText.placeholder='Or type any movie or series name…';
-      }
-    });
-  });
-  favText.addEventListener('input',()=>{
-    if(favText.value.trim()){
-      document.querySelectorAll('.fav-item').forEach(i=>i.classList.remove('selected'));
-      favId.value='';
-    }
-  });
-</script>
-
-<!-- ============ Results only (after submitting) ============ -->
-{% elif quiz and results is not none %}
+<!-- Results only -->
 <section class="pt-4 pb-5" id="picks">
   <div class="container px-3 px-md-5">
     <div class="section-head reveal visible">
@@ -363,137 +328,47 @@
     {% endif %}
   </div>
 </section>
-
-{% else %}
-<!-- ============ Browse mode (after skipping the quiz or searching) ============ -->
-
-<!-- Hero -->
-<section class="hero d-flex align-items-center" style="min-height:82vh;">
-  <div class="container px-3 px-md-5 position-relative py-5 text-center">
-    <span class="hero-pill fade-in-up"><i class="bi bi-stars"></i> Personalized picks, powered by your taste</span>
-    <h1 class="hero-title fade-in-up">Find your next <span class="grad">obsession</span></h1>
-    <p class="hero-sub fade-in-up" style="animation-delay:.08s;">
-      Search thousands of movies and shows, explore hand-picked recommendations,
-      and never wonder what to watch again.
-    </p>
-
-    <form class="hero-search fade-in-up" style="animation-delay:.16s;" action="{{ url_for('index') }}" method="GET" role="search">
-      <div class="input-group input-group-lg">
-        <input class="form-control" type="search" name="q" placeholder="Search movies, shows, actors…"
-               value="{{ query }}" aria-label="Search">
-        <button class="btn" type="submit"><i class="bi bi-search me-1"></i><span>Search</span></button>
-      </div>
-    </form>
-
-    <div class="mt-4 fade-in-up" style="animation-delay:.26s;">
-      <a href="{{ url_for('index') }}" class="btn btn-ghost"><i class="bi bi-sliders2-vertical me-2"></i>Take the quiz for personalized picks</a>
-    </div>
-
-    {% if query %}
-    <div class="mt-3 fade-in-up" style="animation-delay:.2s;">
-      <span class="query-chip">
-        <i class="bi bi-search"></i> “{{ query }}”
-        <a href="{{ url_for('index') }}" aria-label="Clear search"><i class="bi bi-x-lg"></i></a>
-      </span>
-    </div>
-    {% endif %}
-
-    <a href="#explore" class="scroll-hint mt-5 d-inline-flex align-items-center gap-2 text-decoration-none">
-      Explore picks<i class="bi bi-arrow-down-circle"></i>
-    </a>
-  </div>
-</section>
-
-<!-- Explore -->
-<section class="py-5 position-relative" id="explore">
-  <div class="container px-3 px-md-5 position-relative">
-    <div class="section-head reveal">
-      <span class="section-kicker"><i class="bi bi-collection-play me-1"></i> Fresh &amp; curated</span>
-      <h2 class="section-title">Latest Releases</h2>
-    </div>
-
-    {% if titles %}
-    <div class="row g-4" id="posterGrid">
-      {% for t in titles %}
-      <div class="col-6 col-sm-4 col-md-3 col-lg-2 reveal" style="transition-delay:calc({{ loop.index0 }} * 45ms);">
-        <a href="{{ url_for('title_detail', title_id=t.id) }}" class="poster-card d-block text-decoration-none" aria-label="View {{ t.title }}">
-          {% if t.poster_path %}
-          <img src="{{ t.poster_path | tmdb_image('w342') }}" alt="{{ t.title }}" class="w-100" loading="lazy" style="aspect-ratio:2/3;object-fit:cover;">
-          {% else %}
-          <div class="w-100 d-flex align-items-center justify-content-center" style="aspect-ratio:2/3;background:var(--surface-2);">
-            <i class="bi bi-film" style="font-size:3rem;color:var(--muted);"></i>
-          </div>
-          {% endif %}
-
-          <span class="rating-pill position-absolute top-0 start-0 m-2"><i class="bi bi-star-fill"></i> {{ "%.1f"|format(t.vote_average or 0) }}</span>
-          {% if t.media_type %}<span class="type-badge">{{ t.media_type|upper }}</span>{% endif %}
-
-          <span class="card-overlay">
-            <span class="text-white fw-semibold" style="font-size:.95rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ t.title }}</span>
-            <span class="d-flex align-items-center gap-2 mt-1 small" style="color:var(--muted);">
-              {% if t.release_date %}<span><i class="bi bi-calendar3 me-1"></i>{{ t.release_date.year }}</span>{% endif %}
-              <span class="badge-view ms-auto"><i class="bi bi-arrow-up-right"></i></span>
-            </span>
-          </span>
-        </a>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="empty-state text-center reveal">
-      <div class="empty-icon mx-auto mb-3"><i class="bi bi-search"></i></div>
-      <h3 class="fw-semibold mb-2">No results found</h3>
-      <p class="muted mb-4">We couldn't find anything for “{{ query }}”. Try a different title or clear your search.</p>
-      <a href="{{ url_for('index') }}" class="btn btn-gradient"><i class="bi bi-arrow-counterclockwise me-2"></i>Clear search</a>
-    </div>
-    {% endif %}
-  </div>
-</section>
-
-<!-- Pagination -->
-{% if titles and total_pages > 1 %}
-<nav class="pb-5" aria-label="Pagination">
-  <div class="text-center mb-3"><small class="text-muted">Showing {{ (page-1)*PER_PAGE + 1 }}–{{ [page*PER_PAGE, total]|min }} of {{ total }}</small></div>
-  <ul class="pagination">
-    <li class="page-item {% if page == 1 %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('index', q=query, page=page-1) }}" aria-label="Previous"><i class="bi bi-chevron-left"></i></a>
-    </li>
-    {% for p in range(1, total_pages+1) %}
-      {% if p == page or p == 1 or p == total_pages or (p >= page-1 and p <= page+1) %}
-      <li class="page-item {% if p == page %}active{% endif %}">
-        <a class="page-link" href="{{ url_for('index', q=query, page=p) }}">{{ p }}</a>
-      </li>
-      {% elif p == page-2 or p == page+2 %}
-      <li class="page-item disabled"><span class="page-link">…</span></li>
-      {% endif %}
-    {% endfor %}
-    <li class="page-item {% if page == total_pages %}disabled{% endif %}">
-      <a class="page-link" href="{{ url_for('index', q=query, page=page+1) }}" aria-label="Next"><i class="bi bi-chevron-right"></i></a>
-    </li>
-  </ul>
-</nav>
-{% endif %}
 {% endif %}
 {% endblock %}
 
 {% block scripts %}
-{% if quiz %}
 <script>
+  // Skip buttons
+  document.querySelectorAll('[data-skip]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const card=document.querySelector(`[data-question="${btn.dataset.skip}"]`);
+      card.classList.toggle('skipped');
+      card.querySelectorAll('input').forEach(inp=>{ inp.disabled=card.classList.contains('skipped'); });
+      btn.textContent=card.classList.contains('skipped') ? 'Restore question' : 'Skip this question';
+    });
+  });
+
+  // Favorite picker: tap poster to select
+  const favId=document.getElementById('favoriteId');
+  const favText=document.getElementById('favoriteText');
+  document.querySelectorAll('.fav-item').forEach(item=>{
+    item.addEventListener('click',()=>{
+      const wasSelected=item.classList.contains('selected');
+      document.querySelectorAll('.fav-item').forEach(i=>i.classList.remove('selected'));
+      if(!wasSelected){
+        item.classList.add('selected');
+        favId.value=item.dataset.id;
+        favText.value='';
+        favText.placeholder=item.dataset.title+' (selected — click a poster to change)';
+      } else {
+        favId.value='';
+        favText.placeholder='Or type any movie or series name…';
+      }
+    });
+  });
+  favText.addEventListener('input',()=>{
+    if(favText.value.trim()){
+      document.querySelectorAll('.fav-item').forEach(i=>i.classList.remove('selected'));
+      favId.value='';
+    }
+  });
+
+  // Reveal animation for new sections
   document.querySelectorAll('.reveal').forEach(el=>el.classList.add('visible'));
 </script>
-{% else %}
-<script>
-  // Stat counters
-  document.querySelectorAll('.counter').forEach(c=>{
-    const target=+c.dataset.target;
-    let cur=0;
-    const step=Math.max(1,Math.ceil(target/70));
-    const iv=setInterval(()=>{
-      cur+=step;
-      if(cur>=target){c.textContent=target.toLocaleString();clearInterval(iv);}
-      else c.textContent=cur.toLocaleString();
-    },18);
-  });
-</script>
-{% endif %}
 {% endblock %}

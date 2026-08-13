@@ -113,20 +113,28 @@ def _fetch_person_id(cursor, tmdb_id):
     return row[0] if row else None
 
 
-def upsert_title(cursor, tmdb_id, media_type, title, overview, release_date, poster_path, vote_average):
+def upsert_title(cursor, tmdb_id, media_type, title, overview, release_date, poster_path, vote_average,
+                 backdrop_path=None, runtime=None, vote_count=None, popularity=None, original_language=None):
     sql = """
         INSERT INTO `titles`
             (`tmdb_id`, `media_type`, `title`, `overview`, `release_date`,
-             `poster_path`, `vote_average`)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
+             `poster_path`, `backdrop_path`, `vote_average`, `runtime`,
+             `vote_count`, `popularity`, `original_language`)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             `title` = VALUES(`title`),
             `overview` = VALUES(`overview`),
             `release_date` = VALUES(`release_date`),
             `poster_path` = VALUES(`poster_path`),
-            `vote_average` = VALUES(`vote_average`)
+            `backdrop_path` = VALUES(`backdrop_path`),
+            `vote_average` = VALUES(`vote_average`),
+            `runtime` = VALUES(`runtime`),
+            `vote_count` = VALUES(`vote_count`),
+            `popularity` = VALUES(`popularity`),
+            `original_language` = VALUES(`original_language`)
     """
-    cursor.execute(sql, (tmdb_id, media_type, title, overview, release_date, poster_path, vote_average))
+    cursor.execute(sql, (tmdb_id, media_type, title, overview, release_date, poster_path, backdrop_path,
+                         vote_average, runtime, vote_count, popularity, original_language))
     return cursor.lastrowid or _fetch_title_id(cursor, tmdb_id, media_type)
 
 
@@ -247,6 +255,16 @@ def ingest_titles(media_type, items, conn, cursor):
                 release_date = None
             poster_path = details.get("poster_path")
             vote_average = details.get("vote_average")
+            backdrop_path = details.get("backdrop_path")
+            # movies have a single `runtime`; tv exposes an episode runtime list
+            if media_type == "movie":
+                runtime = details.get("runtime")
+            else:
+                episode_runtimes = details.get("episode_run_time") or []
+                runtime = round(sum(episode_runtimes) / len(episode_runtimes)) if episode_runtimes else None
+            vote_count = details.get("vote_count")
+            popularity = details.get("popularity")
+            original_language = details.get("original_language")
             genre_ids = [g["id"] for g in details.get("genres", [])]
 
             title_id = upsert_title(
@@ -258,6 +276,11 @@ def ingest_titles(media_type, items, conn, cursor):
                 release_date,
                 poster_path,
                 vote_average,
+                backdrop_path=backdrop_path,
+                runtime=runtime,
+                vote_count=vote_count,
+                popularity=popularity,
+                original_language=original_language,
             )
             if not title_id:
                 log.warning("Could not upsert title %s %s", media_type, tmdb_id)
