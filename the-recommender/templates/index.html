@@ -81,6 +81,11 @@
   .fav-input .form-control::placeholder{color:var(--muted)}
   .fav-input .form-control:focus{background:rgba(255,255,255,.07);border-color:var(--violet);box-shadow:0 0 0 4px rgba(124,92,255,.18)}
   .fav-note{color:var(--muted);font-size:.8rem}
+  .fav-badge{
+    position:absolute;top:.45rem;left:.45rem;padding:.18rem .5rem;border-radius:50rem;
+    background:rgba(11,13,20,.78);border:1px solid rgba(255,255,255,.16);
+    color:#fff;font-size:.6rem;font-weight:700;letter-spacing:.08em;
+  }
 
   .q-skip{color:var(--muted);font-size:.82rem;cursor:pointer;background:none;border:none;transition:var(--transition);text-decoration:underline;text-decoration-style:dotted}
   .q-skip:hover{color:#fff}
@@ -173,13 +178,13 @@
           </div>
         </div>
 
-        <!-- Q3: Recent favorite -->
+        <!-- Q3: Recent favorites -->
         <div class="col-12">
           <div class="quiz-card" data-question="q3">
             <span class="qnum">Q3</span>
             <h3>Something you loved recently</h3>
-            <p class="qsub">Tap a poster below or type the title — I’ll find its soulmates.</p>
-            <input type="hidden" name="favorite_id" id="favoriteId" value="">
+            <p class="qsub">Tap as many posters as you like — I’ll find their soulmates.</p>
+            <input type="hidden" name="favorite_id" id="favoriteIds" value="">
             <div class="fav-input mb-3">
               <input type="text" class="form-control" name="favorite_text" id="favoriteText"
                      placeholder="Or type any movie or series name…" autocomplete="off">
@@ -187,7 +192,7 @@
             <div class="row g-2 g-md-3">
               {% for f in favorites %}
               <div class="col-4 col-sm-3 col-md-2 col-lg-1-5">
-                <div class="fav-item" data-id="{{ f.id }}" data-title="{{ f.title }}">
+                <div class="fav-item" data-id="{{ f.id }}" data-title="{{ f.title }}" data-type="{{ f.media_type }}">
                   {% if f.poster_path %}
                   <img src="{{ f.poster_path | tmdb_image('w185') }}" alt="{{ f.title }}" loading="lazy">
                   {% else %}
@@ -195,13 +200,14 @@
                     <i class="bi bi-film" style="font-size:1.6rem;color:var(--muted);"></i>
                   </div>
                   {% endif %}
+                  <span class="fav-badge">{{ 'MOVIE' if f.media_type == 'movie' else 'SERIES' }}</span>
                   <span class="fav-name">{{ f.title }}</span>
                 </div>
               </div>
               {% endfor %}
             </div>
             <div class="d-flex align-items-center gap-3 mt-3">
-              <p class="fav-note mb-0"><i class="bi bi-info-circle me-1"></i>Pick one poster <span class="text-muted">or</span> type a title — both work.</p>
+              <p class="fav-note mb-0"><i class="bi bi-info-circle me-1"></i><span id="favCount">Pick a few favorites</span> <span class="text-muted">— tap posters to toggle, or type a title.</span></p>
               <button type="button" class="q-skip" data-skip="q3">Skip this question</button>
             </div>
           </div>
@@ -270,28 +276,28 @@
     });
   });
 
-  // Favorite picker: tap poster to select
-  const favId=document.getElementById('favoriteId');
+  // Favorite picker: multi-select posters (toggle), or type a title
+  const favHidden=document.getElementById('favoriteIds');
   const favText=document.getElementById('favoriteText');
+  const favCount=document.getElementById('favCount');
+  function syncFavorites(){
+    const selected=Array.from(document.querySelectorAll('.fav-item.selected')).map(i=>i.dataset.id);
+    favHidden.value=selected.join(',');
+    favCount.textContent=selected.length
+      ? (selected.length===1 ? '1 favorite selected' : selected.length+' favorites selected')
+      : 'Pick a few favorites';
+  }
   document.querySelectorAll('.fav-item').forEach(item=>{
     item.addEventListener('click',()=>{
-      const wasSelected=item.classList.contains('selected');
-      document.querySelectorAll('.fav-item').forEach(i=>i.classList.remove('selected'));
-      if(!wasSelected){
-        item.classList.add('selected');
-        favId.value=item.dataset.id;
-        favText.value='';
-        favText.placeholder=item.dataset.title+' (selected — click a poster to change)';
-      } else {
-        favId.value='';
-        favText.placeholder='Or type any movie or series name…';
-      }
+      if(favText.value.trim()) favText.value=''; // typing then tapping a poster overrides the typed title
+      item.classList.toggle('selected');
+      syncFavorites();
     });
   });
   favText.addEventListener('input',()=>{
     if(favText.value.trim()){
       document.querySelectorAll('.fav-item').forEach(i=>i.classList.remove('selected'));
-      favId.value='';
+      syncFavorites();
     }
   });
 </script>
@@ -312,8 +318,12 @@
         {% for m in request.form.getlist('mood') %}
         <span class="result-chip"><i class="bi {{ MOOD_ICONS.get(m, 'bi-emoji-smile') }}"></i>{{ MOOD_LABELS.get(m, m) }}</span>
         {% endfor %}
-        {% if request.form.get('favorite_text') or request.form.get('favorite_id') %}
-        <span class="result-chip"><i class="bi bi-heart"></i>Seeded from your favorite</span>
+        {% set fav_ids = request.form.get('favorite_id', '') %}
+        {% set fav_cnt = fav_ids.split(',')|select|list|length %}
+        {% if request.form.get('favorite_text') or fav_cnt %}
+        <span class="result-chip"><i class="bi bi-heart"></i>
+          {% if fav_cnt %}{{ fav_cnt }} favorite{{ '' if fav_cnt == 1 else 's' }}{% else %}typed favorite{% endif %}
+        </span>
         {% endif %}
         {% for h in request.form.getlist('hard_no') %}
         <span class="result-chip"><i class="bi bi-x-octagon"></i>{{ HARD_NO.get(h, {}).get('label', h) }}</span>

@@ -114,13 +114,15 @@ def _fetch_person_id(cursor, tmdb_id):
 
 
 def upsert_title(cursor, tmdb_id, media_type, title, overview, release_date, poster_path, vote_average,
-                 backdrop_path=None, runtime=None, vote_count=None, popularity=None, original_language=None):
+                 backdrop_path=None, runtime=None, vote_count=None, popularity=None, original_language=None,
+                 adult=False, certification=None, content_rating=None):
     sql = """
         INSERT INTO `titles`
             (`tmdb_id`, `media_type`, `title`, `overview`, `release_date`,
              `poster_path`, `backdrop_path`, `vote_average`, `runtime`,
-             `vote_count`, `popularity`, `original_language`)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             `vote_count`, `popularity`, `original_language`,
+             `adult`, `certification`, `content_rating`)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             `title` = VALUES(`title`),
             `overview` = VALUES(`overview`),
@@ -131,10 +133,14 @@ def upsert_title(cursor, tmdb_id, media_type, title, overview, release_date, pos
             `runtime` = VALUES(`runtime`),
             `vote_count` = VALUES(`vote_count`),
             `popularity` = VALUES(`popularity`),
-            `original_language` = VALUES(`original_language`)
+            `original_language` = VALUES(`original_language`),
+            `adult` = VALUES(`adult`),
+            `certification` = VALUES(`certification`),
+            `content_rating` = VALUES(`content_rating`)
     """
     cursor.execute(sql, (tmdb_id, media_type, title, overview, release_date, poster_path, backdrop_path,
-                         vote_average, runtime, vote_count, popularity, original_language))
+                         vote_average, runtime, vote_count, popularity, original_language,
+                         bool(adult), certification, content_rating))
     return cursor.lastrowid or _fetch_title_id(cursor, tmdb_id, media_type)
 
 
@@ -228,6 +234,39 @@ def fetch_credits(media_type, tmdb_id):
     return tmdb_get(f"/{media_type}/{tmdb_id}/credits", params={"language": "en-US"})
 
 
+def fetch_content_flags(media_type, tmdb_id, details):
+    """Return (adult, certification, content_rating) for a title.
+
+    - adult          : TMDB's `adult` flag
+    - certification  : US theatrical certification for movies (release_dates)
+    - content_rating : US content rating for TV shows (content_ratings)
+    """
+    adult = bool(details.get("adult"))
+    certification = None
+    content_rating = None
+    if media_type == "movie":
+        data = tmdb_get(f"/movie/{tmdb_id}/release_dates")
+        if data:
+            for entry in data.get("results", []):
+                if entry.get("iso_3166_1") == "US":
+                    for rd in entry.get("release_dates", []):
+                        cert = (rd.get("certification") or "").strip()
+                        if cert:
+                            certification = cert
+                            break
+                    break
+    else:
+        data = tmdb_get(f"/tv/{tmdb_id}/content_ratings")
+        if data:
+            for entry in data.get("results", []):
+                if entry.get("iso_3166_1") == "US":
+                    rating = (entry.get("rating") or "").strip()
+                    if rating:
+                        content_rating = rating
+                    break
+    return adult, certification, content_rating
+
+
 # ----------------------------------------------------------------------
 # Main ingest flow
 # ----------------------------------------------------------------------
@@ -267,6 +306,8 @@ def ingest_titles(media_type, items, conn, cursor):
             original_language = details.get("original_language")
             genre_ids = [g["id"] for g in details.get("genres", [])]
 
+            adult, certification, content_rating = fetch_content_flags(media_type, tmdb_id, details)
+
             title_id = upsert_title(
                 cursor,
                 tmdb_id,
@@ -281,6 +322,9 @@ def ingest_titles(media_type, items, conn, cursor):
                 vote_count=vote_count,
                 popularity=popularity,
                 original_language=original_language,
+                adult=adult,
+                certification=certification,
+                content_rating=content_rating,
             )
             if not title_id:
                 log.warning("Could not upsert title %s %s", media_type, tmdb_id)

@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, abort
 import os
+import re
 import mysql.connector
 from mysql.connector import pooling
 from dotenv import load_dotenv
@@ -91,15 +92,77 @@ HARD_NO_KEYWORDS = {
     'sexual_violence': {'rape', 'sexual assault', 'sexual violence', 'molestation'},
     'animal_harm': {'animal cruelty', 'animal abuse', 'animal death', 'animal harm'},
     'gore': {'gore', 'torture', 'extreme violence', 'mutilation'},
-    'adult': {'pornography', 'erotic', 'nudity', 'adult film', 'sex scene'},
 }
 
+# Certifications / ratings that unambiguously flag a title as 18+ / explicit.
+# (TV-MA is deliberately NOT included: mainstream prestige shows like Breaking Bad
+# are TV-MA but are not "adult content". Explicit titles are still caught via the
+# keyword / overview signals below.)
+ADULT_CERTIFICATIONS = {'NC-17', 'X', 'AO'}
+ADULT_TV_RATINGS = {'TV-M18'}
 
-def _score_title(t, genres, keywords, moods, seed_id, seed_genres, seed_keywords, runtime):
-    """Return a personalization score for one title dict."""
+# Explicit-content terms. Matched against a title's keywords AND its overview,
+# so titles without certification data (e.g. foreign pink films, ecchi anime)
+# are still filtered out.
+ADULT_KEYWORDS = {
+    'porn', 'pornography', 'pornographic', 'porn movie', 'porn star', 'hardcore',
+    'softcore', 'soft-core', 'erotic', 'erotica', 'erotic movie', 'erotic thriller',
+    'sexploitation', 'pink film', 'pink eiga', 'adult film', 'adult movie',
+    'nude', 'nudity', 'nudist', 'nude scene', 'full frontal', 'male nudity', 'female nudity',
+    'sex scene', 'sex tape', 'sexual content', 'explicit sex', 'sexploitation film',
+    'hentai', 'ecchi', 'xxx', 'blue film', 'fetish film', 'dominatrix', 'bdsm',
+    'prostitute', 'prostitution', 'sex work', 'sex worker', 'orgy', 'masturbation',
+}
+
+HARD_NO_KEYWORDS['adult'] = ADULT_KEYWORDS
+
+# Word-boundary regex for scanning free-text overviews (short/ambiguous terms are
+# matched as whole words so e.g. "xXx" an action film isn't flagged by "xxx").
+ADULT_OVERVIEW_RE = re.compile(
+    r'\b(xxx|orgy|bdsm|ecchi|hentai|nude|nudity|porn|softcore|soft-core|erotic|erotica|'
+    r'sexploitation|pink film|pink eiga|adult film|adult movie|sex scene|sex tape|'
+    r'sexual content|explicit sex|fetish film|dominatrix|prostitute|prostitution|'
+    r'sex work|sex worker|masturbation|full frontal)\b',
+    re.IGNORECASE,
+)
+
+
+def _is_adult_title(t, keywords):
+    """Return True if a title should be treated as explicit / 18+ content."""
+    if t.get('adult'):
+        return True
+    cert = (t.get('certification') or '').strip().upper()
+    if cert in ADULT_CERTIFICATIONS:
+        return True
+    rating = (t.get('content_rating') or '').strip().upper()
+    if rating in ADULT_TV_RATINGS:
+        return True
+    # keywords: TMDB tags for actual explicit content
+    for k in keywords.get(t['id'], set()):
+        kl = k.lower()
+        for term in ADULT_KEYWORDS:
+            if term in kl:
+                return True
+    # overview: word-boundary scan
+    if ADULT_OVERVIEW_RE.search(t.get('overview') or ''):
+        return True
+    return False
+
+
+def _score_title(t, genres, keywords, people, moods, seeds,
+                 seed_genres, seed_keywords, seed_cast, seed_directors, similar_map, runtime):
+    """Return a personalization score for one title dict.
+
+    Signals, roughly in order of influence:
+      - mood genre fit
+      - precomputed cosine similarity to each favorite seed (similar_titles)
+      - genre / keyword overlap with each seed
+      - shared cast members and shared director with each seed
+      - rating quality (vote_average) and runtime preference
+    """
     gs = genres.get(t['id'], set())
     ks = keywords.get(t['id'], set())
-    score = float(t['vote_average'] or 0) * 1.0
+    score = float(t['vote_average'] or 0)
 
     if moods:
         for m in moods:
@@ -108,48 +171,76 @@ def _score_title(t, genres, keywords, moods, seed_id, seed_genres, seed_keywords
         if any(gs & MOOD_GENRES.get(m, set()) for m in moods):
             score += 2
 
-    if seed_id:
-        shared_g = len(gs & seed_genres)
-        shared_k = len(ks & seed_keywords)
-        score += 10 * shared_g
-        score += 4 * min(shared_k, 6)
+    for sid in seeds:
+        sim = similar_map.get(sid, {}).get(t['id'])
+        if sim is not None:
+            score += 22 * sim  # strong "soulmate" signal from precomputed similarity
 
-    if runtime and t['runtime']:
-        _, test = RUNTIME_OPTIONS[runtime]
-        if test(t['runtime']):
-            score += 4
+        shared_g = len(gs & seed_genres.get(sid, set()))
+        shared_k = len(ks & seed_keywords.get(sid, set()))
+        score += 9 * shared_g
+        score += 3.5 * min(shared_k, 6)
+
+        # cast / director affinity with the seed
+        p = people.get(t['id'])
+        if p:
+            shared_cast = len(p['actors'] & seed_cast.get(sid, set()))
+            score += 5 * min(shared_cast, 3)
+            seed_director = seed_directors.get(sid)
+            if seed_director and p['director'] and p['director'] == seed_director:
+                score += 7
+
+    if runtime != 'any':
+        if t['runtime']:
+            _, test = RUNTIME_OPTIONS[runtime]
+            if test(t['runtime']):
+                score += 4
+            else:
+                score -= 6
         else:
-            score -= 6
-    elif runtime and not t['runtime']:
-        score -= 2  # unknown runtime -> gently deprioritise when a preference exists
+            score -= 2  # unknown runtime -> gently deprioritise when a preference exists
 
     return score
 
 
+def _fetch_favorites(cursor, limit=24):
+    """Curated set of recognizable titles for the Q3 picker (multi-select)."""
+    cursor.execute("""
+        SELECT id, media_type, title, poster_path, vote_average, release_date
+        FROM titles
+        WHERE vote_average >= 6.5
+        ORDER BY RAND()
+        LIMIT %s
+    """, (limit,))
+    return cursor.fetchall()
+
+
 def personalization_query(conn, answers):
-    """Run the Q&A filter and return a ranked list of title dicts (empty if no answers)."""
+    """Run the Q&A filter and return (favorites, ranked_results) (None if no answers)."""
     media_type = answers.get('media_type') or ''
     moods = answers.get('moods') or []
     hard_no = answers.get('hard_no') or []
     runtime = answers.get('runtime') or 'any'
-    fav_id = answers.get('favorite_id')
+
+    # --- resolve favorite seeds (multiple posters + one typed title) ---
+    raw_ids = answers.get('favorite_ids') or answers.get('favorite_id') or ''
+    if isinstance(raw_ids, str):
+        raw_ids = [x for x in raw_ids.replace(',', ' ').split() if x.strip().isdigit()]
+    elif isinstance(raw_ids, (list, tuple)):
+        raw_ids = [str(x) for x in raw_ids if str(x).strip().isdigit()]
     fav_text = (answers.get('favorite_text') or '').strip()
 
-    if not media_type and not moods and not hard_no and runtime == 'any' and not fav_id and not fav_text:
+    if (not media_type and not moods and not hard_no and runtime == 'any'
+            and not raw_ids and not fav_text):
         return None
 
     cursor = conn.cursor(dictionary=True)
     try:
-        # random shortlist for the "recent favorite" picker
-        cursor.execute("""
-            SELECT id, media_type, title, poster_path, vote_average, release_date
-            FROM titles ORDER BY RAND() LIMIT 12
-        """)
-        favorites = cursor.fetchall()
+        favorites = _fetch_favorites(cursor)
 
         cursor.execute("""
             SELECT t.id, t.media_type, t.title, t.poster_path, t.vote_average, t.release_date,
-                   t.runtime, t.original_language, t.overview
+                   t.runtime, t.original_language, t.overview, t.adult, t.certification, t.content_rating
             FROM titles t
         """)
         titles = cursor.fetchall()
@@ -162,6 +253,13 @@ def personalization_query(conn, answers):
             "SELECT tk.title_id, k.name FROM title_keywords tk JOIN keywords k ON k.id = tk.keyword_id"
         )
         kw_rows = cursor.fetchall()
+        cursor.execute("""
+            SELECT tp.title_id, p.name, tp.role
+            FROM title_people tp
+            JOIN people p ON p.id = tp.person_id
+            WHERE tp.role IN ('actor', 'director')
+        """)
+        people_rows = cursor.fetchall()
 
         genres, keywords = {}, {}
         for r in genre_rows:
@@ -169,30 +267,60 @@ def personalization_query(conn, answers):
         for r in kw_rows:
             keywords.setdefault(r['title_id'], set()).add(r['name'])
 
-        # resolve favourite seed
-        seed_id = None
-        if fav_id:
+        people = {}
+        for r in people_rows:
+            entry = people.setdefault(r['title_id'], {'actors': set(), 'director': None})
+            if r['role'] == 'actor':
+                entry['actors'].add(r['name'])
+            elif r['role'] == 'director' and entry['director'] is None:
+                entry['director'] = r['name']
+
+        # resolve the favorite seed ids
+        seed_ids = []
+        for raw in raw_ids[:6]:
             try:
-                seed_id = int(fav_id)
+                sid = int(raw)
             except (TypeError, ValueError):
-                seed_id = None
-        if not seed_id and fav_text:
+                continue
+            if any(x['id'] == sid for x in titles) and sid not in seed_ids:
+                seed_ids.append(sid)
+
+        if fav_text:
             cursor.execute(
                 "SELECT id FROM titles WHERE LOWER(title) LIKE %s ORDER BY CHAR_LENGTH(title) LIMIT 1",
                 (f'%{fav_text.lower()}%',),
             )
             row = cursor.fetchone()
-            if row:
-                seed_id = row['id']
+            if row and row['id'] not in seed_ids:
+                seed_ids.append(row['id'])
 
-        seed_genres = genres.get(seed_id, set()) if seed_id else set()
-        seed_keywords = keywords.get(seed_id, set()) if seed_id else set()
+        # per-seed feature profiles for scoring
+        seed_genres = {sid: genres.get(sid, set()) for sid in seed_ids}
+        seed_keywords = {sid: keywords.get(sid, set()) for sid in seed_ids}
+        seed_cast = {sid: people.get(sid, {}).get('actors', set()) for sid in seed_ids}
+        seed_directors = {sid: people.get(sid, {}).get('director') for sid in seed_ids}
 
-        # apply filters
+        # precomputed cosine neighbours of each seed (the "soulmates" signal)
+        similar_map = {}
+        if seed_ids:
+            placeholders = ','.join(['%s'] * len(seed_ids))
+            cursor.execute(
+                f"""
+                SELECT source_title_id, target_title_id, similarity_score
+                FROM similar_titles WHERE source_title_id IN ({placeholders})
+                """,
+                tuple(seed_ids),
+            )
+            for r in cursor.fetchall():
+                similar_map.setdefault(r['source_title_id'], {})[r['target_title_id']] = float(r['similarity_score'])
+
+        # apply filters + rank
         kept = []
         for t in titles:
             if media_type in ('movie', 'tv') and t['media_type'] != media_type:
                 continue
+            if t['id'] in seed_ids:
+                continue  # never recommend the favorites themselves
 
             gs = genres.get(t['id'], set())
             ks = keywords.get(t['id'], set())
@@ -205,6 +333,8 @@ def personalization_query(conn, answers):
                 elif flag == 'horror' and 'Horror' in gs:
                     exclude = True
                 elif flag == 'long_runtime' and t['runtime'] and t['runtime'] > 180:
+                    exclude = True
+                elif flag == 'adult' and _is_adult_title(t, keywords):
                     exclude = True
                 else:
                     banned = HARD_NO_KEYWORDS.get(flag, set())
@@ -220,7 +350,9 @@ def personalization_query(conn, answers):
                 if not test(t['runtime']):
                     continue
 
-            score = _score_title(t, genres, keywords, moods, seed_id, seed_genres, seed_keywords, runtime)
+            score = _score_title(t, genres, keywords, people, moods, seed_ids,
+                                 seed_genres, seed_keywords, seed_cast, seed_directors,
+                                 similar_map, runtime)
             kept.append((score, t))
 
         kept.sort(key=lambda x: x[0], reverse=True)
@@ -268,13 +400,9 @@ def create_app():
         favorites = []
 
         try:
-            cursor.execute("""
-                SELECT id, media_type, title, poster_path, vote_average, release_date
-                FROM titles ORDER BY RAND() LIMIT 12
-            """)
-            favorites = cursor.fetchall()
+            favorites = _fetch_favorites(cursor)
         except Exception:
-            pass
+            favorites = []
 
         if request.method == 'POST':
             answers = {
@@ -356,11 +484,7 @@ def create_app():
         results = None
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("""
-                SELECT id, media_type, title, poster_path, vote_average, release_date
-                FROM titles ORDER BY RAND() LIMIT 12
-            """)
-            favorites = cursor.fetchall()
+            favorites = _fetch_favorites(cursor)
             cursor.close()
 
             if request.method == 'POST':
