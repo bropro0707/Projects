@@ -100,10 +100,10 @@
     <div class="row align-items-end g-4">
       <div class="col-12 col-md-8">
         <span class="quiz-kicker"><i class="bi bi-sliders2-vertical"></i> Build your profile</span>
-        <h1 class="quiz-title">Answer five questions,<br>get <span class="grad">your</span> picks</h1>
+        <h1 class="quiz-title">Want recommendation,<br>give answer of these questions <span class="grad">mate</span></h1>
         <p class="quiz-sub">
-          Tell us your vibe, your recent favorites and your hard no’s — we’ll filter
-          everything down to what <em>you</em> actually want to watch.
+          Tell me your vibe, your recent favorites and your hard no’s — I’ll filter
+          everything down to what you actually want to bing.
         </p>
       </div>
       <div class="col-12 col-md-4 text-md-end">
@@ -178,7 +178,7 @@
           <div class="quiz-card" data-question="q3">
             <span class="qnum">Q3</span>
             <h3>Something you loved recently</h3>
-            <p class="qsub">Tap a poster below or type the title — we’ll find its soulmates.</p>
+            <p class="qsub">Tap a poster below or type the title — I’ll find its soulmates.</p>
             <input type="hidden" name="favorite_id" id="favoriteId" value="">
             <div class="fav-input mb-3">
               <input type="text" class="form-control" name="favorite_text" id="favoriteText"
@@ -212,7 +212,7 @@
           <div class="quiz-card" data-question="q4">
             <span class="qnum">Q4</span>
             <h3>Hard no’s</h3>
-            <p class="qsub">Anything we should filter out, no matter what?</p>
+            <p class="qsub">Anything I should filter out, no matter what?</p>
             <div class="d-flex flex-wrap gap-2">
               {% for key, meta in HARD_NO.items() %}
               <div class="form-check m-0">
@@ -357,7 +357,7 @@
     <div class="empty-state text-center">
       <div class="empty-icon mx-auto mb-3"><i class="bi bi-funnel"></i></div>
       <h3 class="fw-semibold mb-2">No matches yet</h3>
-      <p class="muted mb-4">Your answers were too strict for our catalog. Loosen a couple of hard no’s and try again.</p>
+      <p class="muted mb-4">Your answers were too strict for my catalog. Loosen a couple of hard no’s and try again.</p>
       <a href="{{ url_for('personalize') }}" class="btn btn-gradient"><i class="bi bi-arrow-counterclockwise me-2"></i>Take another round</a>
     </div>
     {% endif %}
@@ -371,7 +371,7 @@
 <section class="hero d-flex align-items-center" style="min-height:82vh;">
   <div class="container px-3 px-md-5 position-relative py-5 text-center">
     <span class="hero-pill fade-in-up"><i class="bi bi-stars"></i> Personalized picks, powered by your taste</span>
-    <h1 class="hero-title fade-in-up">Find your next <span class="grad">obsession</span></h1>
+    <h1 class="hero-title fade-in-up">Go, Find your <span class="grad">bing watch</span></h1>
     <p class="hero-sub fade-in-up" style="animation-delay:.08s;">
       Search thousands of movies and shows, explore hand-picked recommendations,
       and never wonder what to watch again.

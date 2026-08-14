@@ -8,7 +8,7 @@
   {% if title.backdrop_path %}
   <div class="parallax-bg" style="background-image:url('{{ title.backdrop_path | tmdb_image('w1280') }}');"></div>
   {% else %}
-  <div class="parallax-bg" style="background:linear-gradient(135deg,#1d2334 0%,#0b0d14 100%);"></div>
+  <div class="parallax-bg" style="background:transparent;"></div>
   {% endif %}
   <div class="hero-scrim"></div>
 
