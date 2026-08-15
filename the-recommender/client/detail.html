@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>The Recommender</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d14">
+  <meta name="description" content="The Recommender — discover movies and TV shows matched to your taste.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230b0d14'/><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%237c5cff'/><stop offset='1' stop-color='%232dd4bf'/></linearGradient></defs><path d='M9 11h5v10H9zM18 11h5v10h-5z' fill='url(%23g)'/><circle cx='23.5' cy='8.5' r='2.2' fill='%23ff5c8a'/></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" integrity="sha384-tViUnnbYAV00FLIhhi3v/dWt3Jxw4gZQcNoSCxCIFNJVCx7/D55/wXsrNIRANwdD" crossorigin="anonymous">
+  <link href="assets/css/style.css" rel="stylesheet">
+</head>
+<body>
+  <div class="bg-scene" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+  </div>
+
+  <nav class="navbar navbar-expand-lg px-3 px-md-5 py-3" id="mainNavbar">
+    <div class="container-fluid px-0 px-lg-3">
+      <a class="navbar-brand" href="index.html">
+        <span class="brand-logo"><i class="bi bi-play-fill"></i></span>
+        <span class="brand-text">The <span class="grad">Recommender</span></span>
+      </a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navContent"
+              aria-controls="navContent" aria-expanded="false" aria-label="Toggle navigation">
+        <i class="bi bi-list text-light fs-3"></i>
+      </button>
+      <div class="collapse navbar-collapse" id="navContent">
+        <a class="btn btn-ghost me-2 my-2 my-lg-0" href="personalize.html" style="padding:.45rem 1.2rem;font-size:.9rem;">
+          <i class="bi bi-sliders2-vertical me-1"></i>Personalize
+        </a>
+        <form class="search-form ms-auto w-100 w-lg-auto my-3 my-lg-0" id="navbarSearch" action="index.html" method="GET" role="search">
+          <div class="input-group">
+            <input class="form-control" type="search" name="q" placeholder="Search movies & shows…"
+                   value="" aria-label="Search">
+            <button class="btn" type="submit"><i class="bi bi-search"></i></button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Detail hero (populated by JS) -->
+  <header class="detail-hero position-relative overflow-hidden" style="min-height:80vh;">
+    <div class="parallax-bg" id="detailBackdrop"></div>
+    <div class="hero-scrim"></div>
+
+    <div class="container px-3 px-md-5 position-relative h-100 d-flex flex-column justify-content-end pb-5">
+      <a href="index.html" class="btn btn-ghost align-self-start mb-4" style="max-width:fit-content;">
+        <i class="bi bi-arrow-left me-2"></i>Back to Browse
+      </a>
+
+      <div class="row align-items-end g-4">
+        <div class="col-12 col-md-3 col-lg-2" id="detailPoster"></div>
+        <div class="col-12 col-md-9 col-lg-10">
+          <h1 class="detail-title" id="detailTitle">Loading…</h1>
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-3" id="detailMeta"></div>
+          <p class="detail-overview" id="detailOverview">Loading details…</p>
+          <div class="d-flex flex-wrap gap-2 mt-4">
+            <button class="btn btn-gradient action-btn" data-toast="Added to your Watchlist" data-icon="bi-plus-circle"><i class="bi bi-plus-lg me-2"></i>Watchlist</button>
+            <button class="btn btn-ghost action-btn" data-toast="Saved to Favorites" data-icon="bi-heart-fill"><i class="bi bi-heart me-2"></i>Favorite</button>
+            <button class="btn btn-ghost action-btn" data-toast="Link copied to clipboard" data-icon="bi-link-45deg"><i class="bi bi-share me-2"></i>Share</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Info grid -->
+  <section class="py-5">
+    <div class="container px-3 px-md-5">
+      <div class="row g-3" id="infoGrid"></div>
+    </div>
+  </section>
+
+  <!-- More Like This -->
+  <section class="pb-5 position-relative" id="similarSection" style="display:none;">
+    <div class="container px-3 px-md-5 position-relative">
+      <div class="section-head reveal">
+        <span class="section-kicker"><i class="bi bi-magic me-1"></i> Because you liked this</span>
+        <h2 class="section-title">More Like This</h2>
+      </div>
+      <div class="row g-4" id="similarGrid"></div>
+    </div>
+  </section>
+
+  <div class="empty-state text-center" id="detailError" style="display:none;margin-top:4rem;">
+    <div class="empty-icon mx-auto mb-3"><i class="bi bi-film"></i></div>
+    <h3 class="fw-semibold mb-2">Title not found</h3>
+    <p class="muted mb-4">We couldn't find that one. Try searching again.</p>
+    <a href="index.html" class="btn btn-gradient"><i class="bi bi-arrow-left me-2"></i>Back to Browse</a>
+  </div>
+
+  <footer>
+    <div class="container px-3 px-md-5">
+      <div class="row align-items-center">
+        <div class="col-12 col-md-6 text-center text-md-start mb-4 mb-md-0">
+          <div class="footer-brand justify-content-center justify-content-md-start">
+            <span class="brand-logo"><i class="bi bi-play-fill"></i></span>The Recommender
+          </div>
+          <p class="footer-tagline">Your gateway to stories you'll love.</p>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="footer-links text-center text-md-end mb-3">
+            <a href="#">About</a>
+            <a href="#">Privacy</a>
+            <a href="#">Terms</a>
+            <a href="#">Contact</a>
+          </div>
+          <div class="social-icons">
+            <a href="#" aria-label="Twitter"><i class="bi bi-twitter-x"></i></a>
+            <a href="#" aria-label="Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="#" aria-label="YouTube"><i class="bi bi-youtube"></i></a>
+            <a href="#" aria-label="GitHub"><i class="bi bi-github"></i></a>
+          </div>
+        </div>
+      </div>
+      <hr class="my-4" style="border-color:var(--border)">
+      <p class="text-center small text-muted mb-0">&copy; 2026 The Recommender. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <button class="back-to-top" id="backToTop" aria-label="Back to top"><i class="bi bi-arrow-up"></i></button>
+  <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+  <script src="config.js"></script>
+  <script src="assets/js/app.js"></script>
+  <script src="assets/js/detail.js"></script>
+</body>
+</html>
