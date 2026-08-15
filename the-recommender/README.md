@@ -1,29 +1,30 @@
 # The Recommender 🎬
+Get stuck what to watch next,
+Answer five quick questions about your mood and get movie or TV recommendations you'll actually want to watch — not just another "trending now" list.
 
-Wassup mate, give the answer of 5 simple questions and engine will recommend you the movies or tv shows that you will actually like. Not just any nut personalized for you.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/downloads/)
+
 
 ## Overview
 
-**The Recommender** is a full-stack web application that helps users discover movies and TV shows based on their current mood and viewing preferences. Instead of endless scrolling, simply select how you want to feel—make me laugh, make me cry, keep me on edge—and get personalized recommendations powered by machine learning.
+**The Recommender** a full-stack web app that helps you pick something to watch based on your answer. Choose how you want to feel — make me laugh, make me cry, keep me on edge — and get personalized picks from a Cinephile friend.
 
 ### Key Features
 
-✨ **Mood-Based Discovery** – Choose from 7 different emotional states to get tailored recommendations  
-🔍 **Smart Search** – Multi-field search with intelligent scoring across titles, genres, cast, and keywords  
-❤️ **Favorites Management** – Save and track your favorite movies and shows  
-⚙️ **Personalization** – Customize recommendations based on runtime, rating, and content preferences  
-📊 **Advanced Filtering** – Filter by genres, runtime, rating, and content flags  
-🎨 **Modern UI** – Beautiful, responsive design built with Bootstrap 5  
+✨ **Mood-Based Discovery** – Choose from 7 emotional states to get tailored recommendations
+🔍 **Smart Search** – Multi-field weighted scoring across titles, genres, cast, and keywords
+❤️ **Favorites Management** – Save and track favorite movies and shows
+⚙️ **Personalization** – Filter by runtime, hard-no content flags, and favorites
+📊 **Advanced Filtering** – Filter by genres, runtime, rating, and content flags
+🎨 **Modern UI** – Responsive design built with Bootstrap 5
 🚀 **RESTful API** – Clean API endpoints for easy integration
 
 ## Tech Stack
 
 ### Backend
 - **Framework:** Flask with CORS support
-- **Database:** MySQL with pooling
+- **Database:** MySQL with connection pooling
 - **ML:** scikit-learn for recommendation scoring
 - **Data Processing:** pandas
 - **Environment:** python-dotenv for configuration
@@ -34,7 +35,12 @@ Wassup mate, give the answer of 5 simple questions and engine will recommend you
 - **Bootstrap 5** for UI components
 - **Bootstrap Icons** for visual elements
 
-## Here is the structure
+## Screenshots
+
+<img src="server/screenshots/Screenshot 2026-08-15 170818.png" alt="Homepage with mood selector" width="700"/>
+<img src="server/screenshots/Screenshot 2026-08-15 170906.png" alt="Recommendation results" width="700"/>
+
+## Project Structure here mate
 
 ```
 the-recommender/
@@ -77,13 +83,13 @@ the-recommender/
 ### Prerequisites
 - Python 3.8 or higher
 - MySQL 5.7 or higher (or MariaDB)
-- Node.js (optional, for frontend development)
+- A free [TMDB API key](https://www.themoviedb.org/settings/api)
 
 ### Backend Setup
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/the-recommender.git
+   git clone https://github.com/bropro0707/projects/the-recommender.git
    cd the-recommender/server
    ```
 
@@ -102,8 +108,10 @@ the-recommender/
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` with your MySQL credentials:
+   Edit `.env` with your TMDB key and MySQL credentials:
    ```env
+   TMDB_API_KEY=your_tmdb_api_key
+   SECRET_KEY=generate_a_random_string_here
    MYSQL_HOST=localhost
    MYSQL_PORT=3306
    MYSQL_USER=root
@@ -113,8 +121,8 @@ the-recommender/
 
 5. **Initialize the database:**
    ```bash
-   mysql -u root -p movie_recommender < app/migrations/001_add_title_columns.sql
-   mysql -u root -p movie_recommender < app/migrations/002_add_content_flags.sql
+   mysql -u root -p movie_recommender < scripts/migrations/001_add_title_columns.sql
+   mysql -u root -p movie_recommender < scripts/migrations/002_add_content_flags.sql
    ```
 
 6. **Populate the database:**
@@ -136,12 +144,16 @@ the-recommender/
    cd ../client
    ```
 
-2. **Configure the API endpoint** in `config.js`:
+2. **Configure the API endpoint** in `config.js`. Leave it as-is if Flask is serving the client too (the default — Flask already has a route for this):
    ```javascript
-   const API_URL = 'http://localhost:5000/api';
+   window.API_BASE = '';
+   ```
+   If you're hosting the frontend separately (e.g. GitHub Pages, Netlify), point it at your deployed backend instead:
+   ```javascript
+   window.API_BASE = 'https://your-server.example.com';
    ```
 
-3. **Serve the frontend:**
+3. **Serve the frontend** (only needed if running it separately from Flask):
    - Using Python: `python -m http.server 8000`
    - Using Node.js: `npx http-server`
    - Open `http://localhost:8000` in your browser
@@ -149,37 +161,31 @@ the-recommender/
 ## API Endpoints
 
 ### `/api/config` (GET)
-Returns static configuration for the quiz (moods, runtime options, hard-no's).
-
-**Response:**
-```json
-{
-  "moods": {
-    "laugh": {"label": "Make me laugh", "icon": "bi-emoji-laughing"},
-    ...
-  },
-  "runtime_options": {...},
-  "hard_no": [...]
-}
-```
+Static config for the quiz (moods, runtime options, hard-no's).
 
 ### `/api/favorites` (GET)
-Retrieve user's favorited titles.
+Curated favorites for the quiz picker. Optional `?limit=` (default 24).
 
-### `/api/search?q={query}` (GET)
-Search for titles by name, cast, or keywords with intelligent scoring.
+### `/api/titles` (GET)
+Browse all titles, paginated. Pass `?q=` to search by title, cast, character, genre, or keyword with weighted relevance scoring.
 
-### `/api/recommendations` (POST)
-Get personalized recommendations based on mood and preferences.
+**Query params:** `page` (default 1), `q` (optional)
+
+### `/api/titles/{id}` (GET)
+Full detail for one title, plus its 12 most similar titles (precomputed).
+
+### `/api/personalize` (POST)
+Runs the mood quiz and returns ranked results.
 
 **Request Body:**
 ```json
 {
-  "mood": "laugh",
-  "runtime_min": 60,
-  "runtime_max": 120,
-  "genres": ["Comedy"],
-  "hard_no": []
+  "media_type": "movie",
+  "moods": ["laugh", "escape"],
+  "runtime": "standard",
+  "hard_no": ["horror", "subtitles"],
+  "favorite_ids": "",
+  "favorite_text": ""
 }
 ```
 
@@ -205,7 +211,7 @@ The application uses a relational database with tables for:
 - **content_flags** – Content ratings and warnings
 - **recommendations** – Pre-computed ML-based recommendations
 
-See `server/app/migrations/` for the full schema.
+See `server/scripts/migrations/` for the full schema.
 
 ## Development
 
@@ -228,9 +234,9 @@ python server/scripts/build_recommendations.py
 
 This project is licensed under the MIT License – see the [LICENSE](LICENSE) file for details.
 
-
 ## Acknowledgments
 
+- This product uses the TMDB API but is not endorsed or certified by TMDB.
 - Built with [Flask](https://flask.palletsprojects.com/)
 - Styled with [Bootstrap 5](https://getbootstrap.com/)
 - Icons from [Bootstrap Icons](https://icons.getbootstrap.com/)
@@ -238,7 +244,7 @@ This project is licensed under the MIT License – see the [LICENSE](LICENSE) fi
 
 ## Support
 
-For questions, issues, or suggestions just message me mate
+For questions, issues, or suggestions, open an issue or reach out directly.
 
 ---
 
