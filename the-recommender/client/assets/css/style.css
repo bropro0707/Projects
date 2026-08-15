@@ -208,8 +208,9 @@ img{max-width:100%}
 }
 .stat-card:hover{transform:translateY(-5px);border-color:rgba(124,92,255,.55);box-shadow:0 14px 34px rgba(0,0,0,.45)}
 .stat-card:hover::before{opacity:1}
-.stat-card .counter{font-family:'Space Grotesk',sans-serif;font-weight:700;background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.stat-card .counter{font-family:'Space Grotesk',sans-serif;font-weight:700;background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1.1}
 .stat-card small{color:var(--muted);letter-spacing:.04em}
+.stat-card .stat-icon{width:44px;height:44px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;background:var(--gradient-soft);color:var(--teal);font-size:1.3rem;margin-bottom:.9rem}
 
 .scroll-hint{color:var(--muted);font-size:.92rem;font-weight:500;transition:var(--transition)}
 .scroll-hint:hover{color:#fff}

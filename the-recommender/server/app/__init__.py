@@ -23,12 +23,12 @@ def create_app():
     if os.path.isdir(client_dir):
         from flask import send_from_directory
 
-        @app.route('/', defaults={'path': 'index.html'})
+        @app.route('/', defaults={'path': 'personalize.html'})
         @app.route('/<path:path>')
         def serve_client(path):
             full = os.path.join(client_dir, path)
             if os.path.isfile(full):
                 return send_from_directory(client_dir, path)
-            return send_from_directory(client_dir, 'index.html')
+            return send_from_directory(client_dir, 'personalize.html')
 
     return app

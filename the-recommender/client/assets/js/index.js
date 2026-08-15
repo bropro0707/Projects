@@ -100,5 +100,36 @@
     }
   }
 
+  function animateCount(el, target) {
+    el.setAttribute('data-target', target);
+    if (!('IntersectionObserver' in window)) { el.textContent = target.toLocaleString(); return; }
+    new IntersectionObserver((entries, obs) => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        obs.disconnect();
+        const duration = 900;
+        const start = performance.now();
+        (function tick(now) {
+          const p = Math.min((now - start) / duration, 1);
+          const eased = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(target * eased).toLocaleString();
+          if (p < 1) requestAnimationFrame(tick);
+        })(start);
+      });
+    }, { threshold: .5 }).observe(el);
+  }
+
+  async function loadStats() {
+    try {
+      const data = await apiFetch('/stats');
+      animateCount(document.getElementById('statMovies'), data.movies || 0);
+      animateCount(document.getElementById('statTv'), data.tv || 0);
+    } catch (e) {
+      document.getElementById('statMovies').textContent = '—';
+      document.getElementById('statTv').textContent = '—';
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', load);
+  document.addEventListener('DOMContentLoaded', loadStats);
 })();

@@ -182,7 +182,8 @@
           '<span class="section-kicker"><i class="bi bi-stars me-1"></i> Your personalized picks</span>' +
           '<h2 class="section-title">Made for you</h2>';
     if (results.length) {
-      html += '<p class="result-count mt-3 mb-2">' + results.length + ' titles that match your answers.</p>' +
+      const total = data.total || 0;
+      html += '<p class="result-count mt-3 mb-2">' + results.length + ' of ' + total.toLocaleString() + ' titles in our database match your answers.</p>' +
         (chips ? '<div class="d-flex flex-wrap gap-2 justify-content-center">' + chips + '</div>' : '');
     }
     html += '<div class="mt-4"><a href="personalize.html" class="btn btn-ghost"><i class="bi bi-arrow-counterclockwise me-2"></i>Take another round</a></div>' +

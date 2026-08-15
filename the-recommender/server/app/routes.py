@@ -60,6 +60,24 @@ def favorites():
     return jsonify({'favorites': _serialize_list(rows)})
 
 
+@api_bp.route('/stats')
+def stats():
+    """Count of movies and TV series in the database."""
+    conn = get_db()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT media_type, COUNT(*) AS cnt FROM titles GROUP BY media_type")
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+    counts = {r['media_type']: r['cnt'] for r in rows}
+    return jsonify({
+        'movies': counts.get('movie', 0),
+        'tv': counts.get('tv', 0),
+    })
+
+
 @api_bp.route('/titles')
 def index():
     """Browse all titles (paginated) or search with ?q=."""
@@ -143,13 +161,18 @@ def personalize():
     conn = get_db()
     try:
         out = personalization_query(conn, answers)
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT COUNT(*) AS cnt FROM titles")
+        total = cursor.fetchone()['cnt']
+        cursor.close()
     finally:
         conn.close()
 
     if out is None:
-        return jsonify({'favorites': [], 'results': []})
+        return jsonify({'favorites': [], 'results': [], 'total': total})
     favorites, results = out
     return jsonify({
         'favorites': _serialize_list(favorites),
         'results': _serialize_list(results),
+        'total': total,
     })
