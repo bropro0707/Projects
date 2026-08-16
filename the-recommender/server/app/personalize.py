@@ -1,4 +1,6 @@
 import re
+import time
+from threading import Lock
 
 from .search import search_titles
 
@@ -105,16 +107,20 @@ ADULT_KEYWORDS = {
     'sexploitation', 'pink film', 'pink eiga', 'adult film', 'adult movie',
     'nude', 'nudity', 'nudist', 'nude scene', 'full frontal', 'male nudity', 'female nudity',
     'sex scene', 'sex tape', 'sexual content', 'explicit sex', 'sexploitation film',
-    'hentai', 'ecchi', 'xxx', 'blue film', 'fetish film', 'dominatrix', 'bdsm',
+    'hentai', 'ecchi', 'blue film', 'fetish film', 'dominatrix', 'bdsm',
     'prostitute', 'prostitution', 'sex work', 'sex worker', 'orgy', 'masturbation',
 }
 
 HARD_NO_KEYWORDS['adult'] = ADULT_KEYWORDS
 
-# Word-boundary regex for scanning free-text overviews (short/ambiguous terms are
-# matched as whole words so e.g. "xXx" an action film isn't flagged by "xxx").
+# Word-boundary regex for scanning free-text overviews. Note: `xxx` is deliberately
+# NOT matched here (or in ADULT_KEYWORDS above) — the "xXx" action franchise is a
+# legitimately PG-13 series whose title/overview contain the token, and a
+# case-insensitive `\bxxx\b` cannot distinguish it from adult content. Genuinely
+# explicit titles are still caught by the `adult` flag, NC-17/X/AO certifications,
+# TV-M18 ratings, and the many unambiguous terms below.
 ADULT_OVERVIEW_RE = re.compile(
-    r'\b(xxx|orgy|bdsm|ecchi|hentai|nude|nudity|porn|softcore|soft-core|erotic|erotica|'
+    r'\b(orgy|bdsm|ecchi|hentai|nude|nudity|porn|softcore|soft-core|erotic|erotica|'
     r'sexploitation|pink film|pink eiga|adult film|adult movie|sex scene|sex tape|'
     r'sexual content|explicit sex|fetish film|dominatrix|prostitute|prostitution|'
     r'sex work|sex worker|masturbation|full frontal)\b',
@@ -185,7 +191,7 @@ def _score_title(t, genres, keywords, people, moods, seeds,
             if seed_director and p['director'] and p['director'] == seed_director:
                 score += 7
 
-    if runtime != 'any':
+    if runtime != 'any' and runtime in RUNTIME_OPTIONS:
         if t['runtime']:
             _, test = RUNTIME_OPTIONS[runtime]
             if test(t['runtime']):
@@ -210,12 +216,78 @@ def _fetch_favorites(cursor, limit=24):
     return cursor.fetchall()
 
 
+# How long to cache the full-table catalog (titles + genre/keyword/people maps).
+_CATALOG_TTL_SECONDS = 60.0
+_catalog_cache = None
+_catalog_cache_ts = 0.0
+_catalog_cache_lock = Lock()
+
+
+def _load_catalog(cursor):
+    """Load titles plus genre/keyword/people maps for personalization.
+
+    Building this means full-table scans, so the result is cached briefly. It is
+    read-only after build, so sharing it across requests/threads is safe.
+    """
+    global _catalog_cache, _catalog_cache_ts
+    now = time.time()
+    with _catalog_cache_lock:
+        if _catalog_cache is not None and now - _catalog_cache_ts < _CATALOG_TTL_SECONDS:
+            return _catalog_cache
+
+    cursor.execute("""
+        SELECT t.id, t.media_type, t.title, t.poster_path, t.vote_average, t.release_date,
+               t.runtime, t.original_language, t.overview, t.adult, t.certification, t.content_rating
+        FROM titles t
+    """)
+    titles = cursor.fetchall()
+
+    cursor.execute(
+        "SELECT tg.title_id, g.name FROM title_genres tg JOIN genres g ON g.id = tg.genre_id"
+    )
+    genre_rows = cursor.fetchall()
+    cursor.execute(
+        "SELECT tk.title_id, k.name FROM title_keywords tk JOIN keywords k ON k.id = tk.keyword_id"
+    )
+    kw_rows = cursor.fetchall()
+    cursor.execute("""
+        SELECT tp.title_id, p.name, tp.role
+        FROM title_people tp
+        JOIN people p ON p.id = tp.person_id
+        WHERE tp.role IN ('actor', 'director')
+    """)
+    people_rows = cursor.fetchall()
+
+    genres, keywords = {}, {}
+    for r in genre_rows:
+        genres.setdefault(r['title_id'], set()).add(r['name'])
+    for r in kw_rows:
+        keywords.setdefault(r['title_id'], set()).add(r['name'])
+
+    people = {}
+    for r in people_rows:
+        entry = people.setdefault(r['title_id'], {'actors': set(), 'director': None})
+        if r['role'] == 'actor':
+            entry['actors'].add(r['name'])
+        elif r['role'] == 'director' and entry['director'] is None:
+            entry['director'] = r['name']
+
+    catalog = (titles, genres, keywords, people)
+    with _catalog_cache_lock:
+        _catalog_cache = catalog
+        _catalog_cache_ts = time.time()
+    return catalog
+
+
 def personalization_query(conn, answers):
-    """Run the Q&A filter and return (favorites, ranked_results) (None if no answers)."""
+    """Run the Q&A filter and return (favorites, ranked_results, matched_count)
+    (None if no answers were given at all)."""
     media_type = answers.get('media_type') or ''
     moods = answers.get('moods') or []
     hard_no = answers.get('hard_no') or []
     runtime = answers.get('runtime') or 'any'
+    if runtime != 'any' and runtime not in RUNTIME_OPTIONS:
+        runtime = 'any'  # unknown value -> behave as "no preference"
 
     # --- resolve favorite seeds (multiple posters + one typed title) ---
     raw_ids = answers.get('favorite_ids') or answers.get('favorite_id') or ''
@@ -233,42 +305,7 @@ def personalization_query(conn, answers):
     try:
         favorites = _fetch_favorites(cursor)
 
-        cursor.execute("""
-            SELECT t.id, t.media_type, t.title, t.poster_path, t.vote_average, t.release_date,
-                   t.runtime, t.original_language, t.overview, t.adult, t.certification, t.content_rating
-            FROM titles t
-        """)
-        titles = cursor.fetchall()
-
-        cursor.execute(
-            "SELECT tg.title_id, g.name FROM title_genres tg JOIN genres g ON g.id = tg.genre_id"
-        )
-        genre_rows = cursor.fetchall()
-        cursor.execute(
-            "SELECT tk.title_id, k.name FROM title_keywords tk JOIN keywords k ON k.id = tk.keyword_id"
-        )
-        kw_rows = cursor.fetchall()
-        cursor.execute("""
-            SELECT tp.title_id, p.name, tp.role
-            FROM title_people tp
-            JOIN people p ON p.id = tp.person_id
-            WHERE tp.role IN ('actor', 'director')
-        """)
-        people_rows = cursor.fetchall()
-
-        genres, keywords = {}, {}
-        for r in genre_rows:
-            genres.setdefault(r['title_id'], set()).add(r['name'])
-        for r in kw_rows:
-            keywords.setdefault(r['title_id'], set()).add(r['name'])
-
-        people = {}
-        for r in people_rows:
-            entry = people.setdefault(r['title_id'], {'actors': set(), 'director': None})
-            if r['role'] == 'actor':
-                entry['actors'].add(r['name'])
-            elif r['role'] == 'director' and entry['director'] is None:
-                entry['director'] = r['name']
+        titles, genres, keywords, people = _load_catalog(cursor)
 
         # resolve the favorite seed ids
         seed_ids = []
@@ -349,6 +386,6 @@ def personalization_query(conn, answers):
 
         kept.sort(key=lambda x: x[0], reverse=True)
         results = [t for _, t in kept][:24]
-        return favorites, results
+        return favorites, results, len(kept)
     finally:
         cursor.close()

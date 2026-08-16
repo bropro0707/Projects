@@ -16,7 +16,6 @@ def _load_config():
             'database': os.getenv('MYSQL_DATABASE', 'movie_recommender'),
             'charset': 'utf8mb4',
             'collation': 'utf8mb4_unicode_ci',
-            'auth_plugin': 'mysql_native_password',
         }
     return _config
 

@@ -23,12 +23,17 @@ def create_app():
     if os.path.isdir(client_dir):
         from flask import send_from_directory
 
-        @app.route('/', defaults={'path': 'personalize.html'})
+        @app.route('/')
+        def home():
+            return send_from_directory(client_dir, 'index.html')
+
         @app.route('/<path:path>')
         def serve_client(path):
             full = os.path.join(client_dir, path)
             if os.path.isfile(full):
                 return send_from_directory(client_dir, path)
-            return send_from_directory(client_dir, 'personalize.html')
+            # Unknown paths fall back to the browse page so relative links like
+            # "index.html" always land on the browse page, never back on the quiz.
+            return send_from_directory(client_dir, 'index.html')
 
     return app

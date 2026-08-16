@@ -10,7 +10,7 @@
   }
 
   function posterCard(t, matchPct) {
-    const year = t.release_date ? '<span><i class="bi bi-calendar3 me-1"></i>' + new Date(t.release_date).getFullYear() + '</span>' : '';
+    const year = t.release_date ? '<span><i class="bi bi-calendar3 me-1"></i>' + releaseYear(t.release_date) + '</span>' : '';
     const img = t.poster_path
       ? '<img src="' + tmdbImage(t.poster_path, 'w342') + '" alt="' + escapeHtml(t.title) + '" class="w-100" loading="lazy" style="aspect-ratio:2/3;object-fit:cover;">'
       : '<div class="w-100 d-flex align-items-center justify-content-center" style="aspect-ratio:2/3;background:var(--surface-2);"><i class="bi bi-film" style="font-size:3rem;color:var(--muted);"></i></div>';
@@ -127,8 +127,22 @@
       btn.addEventListener('click', () => {
         const card = document.querySelector('[data-question="' + btn.dataset.skip + '"]');
         card.classList.toggle('skipped');
-        card.querySelectorAll('input').forEach(inp => { inp.disabled = card.classList.contains('skipped'); });
-        btn.textContent = card.classList.contains('skipped') ? 'Restore question' : 'Skip this question';
+        const skipped = card.classList.contains('skipped');
+        card.querySelectorAll('input').forEach(inp => {
+          inp.disabled = skipped;
+          if (skipped) inp.checked = false;
+        });
+        if (skipped) {
+          // Clear any picked favorites so a skipped Q3 doesn't submit them.
+          card.querySelectorAll('.fav-item.selected').forEach(i => i.classList.remove('selected'));
+          const favHidden = document.getElementById('favoriteIds');
+          const favText = document.getElementById('favoriteText');
+          const favCount = document.getElementById('favCount');
+          if (favHidden) favHidden.value = '';
+          if (favText) favText.value = '';
+          if (favCount) favCount.textContent = 'Pick a few favorites';
+        }
+        btn.textContent = skipped ? 'Restore question' : 'Skip this question';
       });
     });
   }

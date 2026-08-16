@@ -50,6 +50,8 @@ def config():
 def favorites():
     """Curated favorites for the quiz picker."""
     limit = request.args.get('limit', 24, type=int)
+    if limit < 1 or limit > 100:
+        limit = 24
     conn = get_db()
     try:
         cursor = conn.cursor(dictionary=True)
@@ -82,13 +84,20 @@ def stats():
 def index():
     """Browse all titles (paginated) or search with ?q=."""
     page = request.args.get('page', 1, type=int)
+    if page < 1:
+        page = 1
+    per_page = request.args.get('per_page', PER_PAGE, type=int)
+    if per_page < 1:
+        per_page = PER_PAGE
+    elif per_page > 100:
+        per_page = 100
     query = request.args.get('q', '').strip()
-    offset = (page - 1) * PER_PAGE
+    offset = (page - 1) * per_page
 
     conn = get_db()
     try:
         if query:
-            total, titles = search_titles(conn, query, PER_PAGE, offset)
+            total, titles = search_titles(conn, query, per_page, offset)
         else:
             cursor = conn.cursor(dictionary=True)
             cursor.execute("""
@@ -96,7 +105,7 @@ def index():
                 FROM titles
                 ORDER BY release_date DESC
                 LIMIT %s OFFSET %s
-            """, (PER_PAGE, offset))
+            """, (per_page, offset))
             titles = cursor.fetchall()
             cursor.execute("SELECT COUNT(*) as cnt FROM titles")
             total = cursor.fetchone()['cnt']
@@ -104,14 +113,14 @@ def index():
     finally:
         conn.close()
 
-    total_pages = (total + PER_PAGE - 1) // PER_PAGE
+    total_pages = (total + per_page - 1) // per_page
     return jsonify({
         'titles': _serialize_list(titles),
         'total': total,
         'page': page,
         'total_pages': total_pages,
         'query': query,
-        'per_page': PER_PAGE,
+        'per_page': per_page,
     })
 
 
@@ -161,16 +170,12 @@ def personalize():
     conn = get_db()
     try:
         out = personalization_query(conn, answers)
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT COUNT(*) AS cnt FROM titles")
-        total = cursor.fetchone()['cnt']
-        cursor.close()
     finally:
         conn.close()
 
     if out is None:
-        return jsonify({'favorites': [], 'results': [], 'total': total})
-    favorites, results = out
+        return jsonify({'favorites': [], 'results': [], 'total': 0})
+    favorites, results, total = out
     return jsonify({
         'favorites': _serialize_list(favorites),
         'results': _serialize_list(results),

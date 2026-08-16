@@ -3,7 +3,7 @@
   const PER_PAGE = 12;
 
   function posterCard(t) {
-    const year = t.release_date ? '<span><i class="bi bi-calendar3 me-1"></i>' + new Date(t.release_date).getFullYear() + '</span>' : '';
+    const year = t.release_date ? '<span><i class="bi bi-calendar3 me-1"></i>' + releaseYear(t.release_date) + '</span>' : '';
     const img = t.poster_path
       ? '<img src="' + tmdbImage(t.poster_path, 'w342') + '" alt="' + escapeHtml(t.title) + '" class="w-100" loading="lazy" style="aspect-ratio:2/3;object-fit:cover;">'
       : '<div class="w-100 d-flex align-items-center justify-content-center" style="aspect-ratio:2/3;background:var(--surface-2);"><i class="bi bi-film" style="font-size:3rem;color:var(--muted);"></i></div>';

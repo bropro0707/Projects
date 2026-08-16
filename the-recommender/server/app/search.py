@@ -1,4 +1,6 @@
 import re
+import time
+from threading import Lock
 
 # ----------------------------------------------------------------------
 # Powerful search helpers
@@ -23,9 +25,25 @@ SEARCH_KEYWORD_SUBSTRING = 220
 SEARCH_KEYWORD_TOKENS = 160
 SEARCH_OVERVIEW_SUBSTRING = 90
 
+# How long to cache the full-table dataset (titles/genres/keywords/people).
+_DATA_TTL_SECONDS = 60.0
+_search_cache = None
+_search_cache_ts = 0.0
+_search_cache_lock = Lock()
+
 
 def _load_search_data(cursor):
-    """Load titles, genres, keywords and people/characters for search scoring."""
+    """Load titles, genres, keywords and people/characters for search scoring.
+
+    Building this means full-table scans, so the result is cached briefly. It is
+    read-only after build, so sharing it across requests/threads is safe.
+    """
+    global _search_cache, _search_cache_ts
+    now = time.time()
+    with _search_cache_lock:
+        if _search_cache is not None and now - _search_cache_ts < _DATA_TTL_SECONDS:
+            return _search_cache
+
     cursor.execute("""
         SELECT id, media_type, title, poster_path, vote_average, release_date, overview
         FROM titles
@@ -59,7 +77,11 @@ def _load_search_data(cursor):
         if r['character']:
             entry['characters'].add(r['character'])
 
-    return titles, genres, keywords, people
+    cache = (titles, genres, keywords, people)
+    with _search_cache_lock:
+        _search_cache = cache
+        _search_cache_ts = time.time()
+    return cache
 
 
 def _search_score(t, genres, keywords, people, q, q_words):

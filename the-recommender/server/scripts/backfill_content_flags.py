@@ -89,12 +89,11 @@ def main():
                 (bool(adult), cert, cr, r["id"]),
             )
             done += 1
+            conn.commit()  # commit each title so a later failure can't undo this work
             if done % 25 == 0:
-                conn.commit()
                 log.info("Progress: %d/%d", done, len(rows))
             time.sleep(0.2)  # be nice to the API
 
-        conn.commit()
         log.info("Backfill complete (%d titles updated).", done)
     finally:
         cur.close()

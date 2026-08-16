@@ -37,7 +37,7 @@ Answer five quick questions about your mood and get movie or TV recommendations 
 
 ## Screenshots
 
-<img src="server/screenshots/Screenshot 2026-08-15 170818.png" alt="Homepage with mood selector" width="700"/>
+<img src="server/screenshots/Screenshot 2026-08-15 170818.png" alt="Homepage with search and latest releases" width="700"/>
 <img src="server/screenshots/Screenshot 2026-08-15 170906.png" alt="Recommendation results" width="700"/>
 
 ## Project Structure here mate
@@ -45,16 +45,16 @@ Answer five quick questions about your mood and get movie or TV recommendations 
 ```
 the-recommender/
 ├── client/                          # Frontend application
-│   ├── index.html                  # Homepage with mood selector
+│   ├── index.html                  # Home/browse page (no filtering)
 │   ├── detail.html                 # Individual title details
-│   ├── personalize.html            # Personalization/filtering page
+│   ├── personalize.html            # Mood quiz page
 │   ├── config.js                   # Frontend configuration
 │   └── assets/
 │       ├── css/
 │       │   └── style.css           # Styling
 │       └── js/
 │           ├── app.js              # Main app logic
-│           ├── index.js            # Homepage logic
+│           ├── index.js            # Home/browse page logic
 │           ├── detail.js           # Detail page logic
 │           └── personalize.js      # Personalization logic
 │
@@ -70,6 +70,7 @@ the-recommender/
     │   └── personalize.py          # Mood-based recommendation logic
     └── scripts/
         ├── ingest.py               # Database population
+        ├── schema.sql              # Base database schema
         ├── build_recommendations.py # ML recommendation engine
         ├── backfill_details.py      # Content detail enrichment
         ├── backfill_content_flags.py # Content classification
@@ -121,9 +122,12 @@ the-recommender/
 
 5. **Initialize the database:**
    ```bash
+   mysql -u root -p movie_recommender < scripts/schema.sql
    mysql -u root -p movie_recommender < scripts/migrations/001_add_title_columns.sql
    mysql -u root -p movie_recommender < scripts/migrations/002_add_content_flags.sql
    ```
+   `schema.sql` is the base schema (it already includes the `001`/`002` columns, so on
+   a fresh install the two migrations are optional).
 
 6. **Populate the database:**
    ```bash
@@ -211,7 +215,7 @@ The application uses a relational database with tables for:
 - **content_flags** – Content ratings and warnings
 - **recommendations** – Pre-computed ML-based recommendations
 
-See `server/scripts/migrations/` for the full schema.
+See `server/scripts/schema.sql` (base schema) plus `server/scripts/migrations/` for the full schema.
 
 ## Development
 

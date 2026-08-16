@@ -208,8 +208,15 @@ def main():
         for idx, src_id in enumerate(title_ids):
             # Get similarity scores for this row, exclude self
             sims = cosine[idx]
+            # Guard against a tiny catalog: with fewer than two titles there are
+            # no neighbours, and np.argpartition's `kth` must stay within
+            # [-n, n-1], so it crashes when n < TOP_N + 1.
+            n = len(sims)
+            if n < 2:
+                continue
+            k = min(TOP_N + 1, n)
             # argsort descending
-            top_idx = np.argpartition(sims, -(TOP_N + 1))[-(TOP_N + 1) :]
+            top_idx = np.argpartition(sims, -k)[-k:]
             top_idx = top_idx[np.argsort(-sims[top_idx])]
             rank = 0
             for tgt_idx in top_idx:

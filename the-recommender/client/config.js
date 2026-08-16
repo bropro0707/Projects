@@ -15,6 +15,16 @@ function tmdbImage(path, size) {
   return 'https://image.tmdb.org/t/p/' + (size || 'w342') + path;
 }
 
+// Extract the year from a 'YYYY-MM-DD' date. We read the first four characters
+// instead of `new Date(...).getFullYear()` because a date-only ISO string is
+// parsed as UTC midnight, which can shift the year by one in negative-offset
+// timezones for releases on Jan 1.
+function releaseYear(iso) {
+  if (!iso) return '';
+  const m = String(iso).match(/^(\d{4})/);
+  return m ? m[1] : '';
+}
+
 // Helper that prefixes the API base and parses JSON.
 async function apiFetch(path, options) {
   const base = (window.API_BASE || '').replace(/\/+$/, '');

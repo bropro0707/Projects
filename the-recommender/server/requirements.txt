@@ -3,5 +3,4 @@ flask-cors
 mysql-connector-python
 requests
 scikit-learn
-pandas
 python-dotenv
