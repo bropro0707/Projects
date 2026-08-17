@@ -21,7 +21,7 @@ def create_app():
         'client',
     )
     if os.path.isdir(client_dir):
-        from flask import send_from_directory
+        from flask import abort, send_from_directory
 
         @app.route('/')
         def home():
@@ -32,8 +32,10 @@ def create_app():
             full = os.path.join(client_dir, path)
             if os.path.isfile(full):
                 return send_from_directory(client_dir, path)
-            # Unknown paths fall back to the browse page so relative links like
-            # "index.html" always land on the browse page, never back on the quiz.
-            return send_from_directory(client_dir, 'index.html')
+            # Do NOT silently fall back to the browse page here: a missing file
+            # used to be served as the Home page (HTTP 200), which made broken
+            # links and missing assets look like a successful navigation "back
+            # to Home" instead of an error. Return a proper 404 instead.
+            abort(404)
 
     return app
