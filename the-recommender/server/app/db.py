@@ -17,6 +17,19 @@ def _load_config():
             'charset': 'utf8mb4',
             'collation': 'utf8mb4_unicode_ci',
         }
+
+        # TiDB Cloud (and most managed MySQL hosts) require an encrypted
+        # connection. Set MYSQL_SSL=true in production; local dev against
+        # plain MySQL is untouched since this defaults to off.
+        if os.getenv('MYSQL_SSL', 'false').lower() == 'true':
+            import certifi
+            # Uses a trusted public CA bundle by default. Only set
+            # MYSQL_SSL_CA if your host gives you a specific cert file.
+            _config['ssl_ca'] = os.getenv('MYSQL_SSL_CA', certifi.where())
+            _config['ssl_verify_cert'] = True
+        else:
+            # Local MySQL needs this auth plugin; TiDB doesn't use it.
+            _config['auth_plugin'] = 'mysql_native_password'
     return _config
 
 

@@ -37,6 +37,17 @@ MYSQL_CFG = {
     "autocommit": False,
 }
 
+# TiDB Cloud (and most managed MySQL hosts) require an encrypted connection.
+# Set MYSQL_SSL=true in production; local dev against plain MySQL is untouched
+# since this defaults to off. Mirrors server/app/db.py.
+if os.getenv("MYSQL_SSL", "false").lower() == "true":
+    import certifi
+
+    MYSQL_CFG["ssl_ca"] = os.getenv("MYSQL_SSL_CA", certifi.where())
+    MYSQL_CFG["ssl_verify_cert"] = True
+else:
+    MYSQL_CFG["auth_plugin"] = "mysql_native_password"
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",

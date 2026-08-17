@@ -1,6 +1,9 @@
 flask
 flask-cors
+gunicorn
 mysql-connector-python
 requests
 scikit-learn
+pandas
 python-dotenv
+certifi
